@@ -30,6 +30,8 @@ class Settings(BaseSettings):
 
     # ── 검색 ───────────────────────────────────────────
     top_k: int = 5
+    use_hybrid: bool = False          # True = BM25+Dense 혼합 검색
+    hybrid_alpha: float = 0.7        # Dense 가중치 (1-alpha = BM25 가중치)
 
     class Config:
         env_file = ".env"
