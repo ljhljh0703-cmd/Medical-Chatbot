@@ -1,44 +1,26 @@
 """
-라벨링 데이터를 LoRA Fine-Tuning용 Alpaca 포맷으로 변환하고 train/test 분할.
+[레거시 shim] 이 파일은 하위 호환성을 위해 유지됩니다.
+실제 구현은 src/training/data_module.py 에 있습니다.
 
-입력 JSON 스키마:
-{
-    "qa_id": int,
-    "domain": int,
-    "q_type": int,
-    "question": str,
-    "answer": str,
-    "source_folder": str (optional),
-    "source_file": str (optional)
-}
-
-출력 Alpaca 포맷:
-{
-    "instruction": str,   ← question
-    "input": "",
-    "output": str,        ← answer
-    "category": str,      ← domain 코드 → 이름 매핑
-    "source_id": str      ← source_file (없으면 qa_id)
-}
+새 코드에서는 아래를 사용하세요:
+    from training.data_module import prepare_and_split, convert_to_alpaca
 """
 
-import json
-import random
 import os
+import sys
 
+# src/ 경로 추가
+_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+_SRC = os.path.join(_ROOT, "src")
+for _p in (_ROOT, _SRC):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
-DOMAIN_MAP = {17: "내과"}
-
-def convert_to_alpaca(item: dict) -> dict:
-    category = DOMAIN_MAP.get(item.get("domain"), str(item.get("domain", "")))
-    source_id = item.get("source_file") or str(item.get("qa_id", ""))
-    return {
-        "instruction": item["question"],
-        "input": "",
-        "output": item["answer"],
-        "category": category,
-        "source_id": source_id,
-    }
+from training.data_module import (  # noqa: E402
+    convert_to_alpaca,
+    prepare_and_split,
+    DOMAIN_MAP,
+)
 
 
 def prepare(
@@ -47,38 +29,15 @@ def prepare(
     test_size: int = 200,
     seed: int = 42,
 ) -> None:
-    """
-    input_path: 라벨링 데이터 JSON 파일 경로
-    output_dir: train.json / test.json 저장 디렉터리
-    test_size: 테스트셋 샘플 수 (초반 테스트 기준 200개)
-    """
-    with open(input_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    if isinstance(data, dict):
-        data = [data]
-
-    converted = [convert_to_alpaca(item) for item in data]
-    random.seed(seed)
-    random.shuffle(converted)
-
-    test_data = converted[:test_size]
-    train_data = converted[test_size:]
-
-    os.makedirs(output_dir, exist_ok=True)
-    with open(os.path.join(output_dir, "train.json"), "w", encoding="utf-8") as f:
-        json.dump(train_data, f, ensure_ascii=False, indent=2)
-    with open(os.path.join(output_dir, "test.json"), "w", encoding="utf-8") as f:
-        json.dump(test_data, f, ensure_ascii=False, indent=2)
-
-    print(f"[prepare_dataset] train: {len(train_data)}개 / test: {len(test_data)}개 저장 완료")
-    print(f"  → {output_dir}/train.json, test.json")
+    """하위 호환 래퍼. src/training/data_module.prepare_and_split() 으로 위임."""
+    prepare_and_split(input_path, output_dir, test_size, seed)
 
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="[shim] src/training/data_module 위임")
     parser.add_argument("--input", required=True, help="라벨링 데이터 JSON 경로")
-    parser.add_argument("--output_dir", default="data/processed", help="출력 디렉터리")
+    parser.add_argument("--output_dir", default="data/processed")
     parser.add_argument("--test_size", type=int, default=200)
     args = parser.parse_args()
     prepare(args.input, args.output_dir, args.test_size)
