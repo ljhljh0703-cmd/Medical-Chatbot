@@ -19,9 +19,9 @@ class Embedder:
     """
 
     OPENAI_DEFAULT = "text-embedding-3-small"
-    LOCAL_DEFAULT  = "snunlp/KR-SBERT-V40K-klueNLI-augSTS"  # 한국어 특화 SBERT
+    LOCAL_DEFAULT  = "jhgan/ko-sroberta-multitask"  # 한국어 특화 SBERT
 
-    def __init__(self, embedding_model: str = "openai:text-embedding-3-small", api_key: Optional[str] = None):
+    def __init__(self, embedding_model: str = "jhgan/ko-sroberta-multitask", api_key: Optional[str] = None):
         self.embedding_model = embedding_model
         self.api_key = api_key
         self._local_model = None
