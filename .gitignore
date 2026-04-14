@@ -28,7 +28,6 @@ models/
 chroma_db/
 
 # 데이터 (원본 데이터는 별도 보관)
-data/raw/
 data/processed/
 
 # Jupyter
