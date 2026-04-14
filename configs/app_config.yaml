@@ -31,7 +31,7 @@ retrieval:
 
 chroma:
   db_path: "./chroma_db"
-  collection: "medical_inner"
+  collection: "medical_knowledge"
 
 safety:
   red_flag_enabled: true
