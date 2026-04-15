@@ -27,8 +27,8 @@ class GenerationService:
     """
 
     def __init__(self):
-        # 💡 지연 초기화(Lazy Init)를 위한 빈 그릇 준비
-        # 처음부터 무거운 모델을 다 띄우지 않고, 실제로 해당 모드가 호출될 때만 객체를 생성합니다.
+        # 지연 초기화(Lazy Init)를 위한 빈 공간 준비
+        # 처음부터 무거운 모델을 다 띄우지 않고, 실제로 해당 모드가 호출될 때만 객체를 생성
         self._qwen_base: object | None = None   # 모드 A/B용 베이스 클라이언트
         self._qwen_lora: object | None = None   # 모드 C용 LoRA 클라이언트
         self._openai: object | None = None      # OpenAI 백엔드 클라이언트
@@ -49,7 +49,7 @@ class GenerationService:
         """모드 A, B: 순수 베이스 모델 로드"""
         if self._qwen_base is None:
             from llm.model_clients.qwen_client import QwenClient
-            # 💡 수정됨: base_model_path 파라미터 사용 (어댑터는 None)
+            # 수정됨: base_model_path 파라미터 사용 (어댑터는 None)
             self._qwen_base = QwenClient(
                 base_model_path=settings.model_path,
                 adapter_path=None
@@ -93,6 +93,7 @@ class GenerationService:
         문서 검색 결과(context)가 있으면 템플릿에 넣어서 질문과 합치고, 없으면 순수 질문만 반환합니다.
         """
         if context:
+            #검색 된 문서를 템플릿에 끼워 넣고 사용자 질문과 합침
             return RAG_CONTEXT_TEMPLATE.format(context=context) + f"\n질문: {query}"
         return query
 
@@ -122,7 +123,7 @@ class GenerationService:
         # 3. 모델에게 던져줄 최종 텍스트 조립
         prompt = self._build_prompt(query, effective_context)
 
-        logger.info(f"[GenerationService] 작동 시작 🚀 (Mode: {active_mode}, Backend: {settings.model_backend})")
+        logger.info(f"[GenerationService] 작동 시작 (Mode: {active_mode}, Backend: {settings.model_backend})")
 
         # 4-1. 백엔드가 OpenAI인 경우의 분기
         if settings.model_backend == "openai":
