@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
 """
-BM25 ?ъ냼(Sparse) 寃?됯린.
+BM25 희소(Sparse) 검색기.
 
-rank-bm25 ?⑦궎吏 湲곕컲. ChromaDB?먯꽌 ?꾩껜 corpus瑜?濡쒕뱶?섏뿬
-BM25 ?몃뜳?ㅻ? 硫붾え由ъ뿉 援ъ텞?섍퀬 荑쇰━ ?좏겙 湲곕컲?쇰줈 寃??
+rank-bm25 패키지 기반. ChromaDB에서 전체 corpus를 로드하여
+BM25 인덱스를 메모리에 구축하고 쿼리 토큰 기반으로 검색.
 
 requirements: rank-bm25  (pip install rank-bm25)
 """
@@ -20,27 +20,27 @@ from observability.logger import logger
 DEFAULT_CHROMA_DB_PATH = (Path(__file__).resolve().parents[3] / "chroma_db").resolve()
 
 """
-?곕????ㅽ뻾 肄붾뱶:
-pip install kiwipiepy rank-bm25 chromadb # ?쇱씠釉뚮윭由??ㅼ튂
-python -c "import chromadb; c=chromadb.PersistentClient(path='../chroma_db'); print([x.name for x in c.list_collections()])" # chroma_db 而щ젆??濡쒕뱶
-python -m ingestion.indexing.build_knowledge_base --data_dir ../data/raw --collection medical_knowledge # chroma_db 而щ젆??濡쒕뱶媛 ?덈맆 寃쎌슦 ?앹꽦
-python -c "from retrieval.sparse.bm25_retriever import BM25Retriever; r=BM25Retriever(collection_name='medical_knowledge', db_path='../chroma_db'); print(r.retrieve('怨좏삁??移섎즺', top_k=5))" # bm25 index ?앹꽦
+로컬 실행 코드:
+pip install kiwipiepy rank-bm25 chromadb # 라이브러리 설치
+python -c "import chromadb; c=chromadb.PersistentClient(path='../chroma_db'); print([x.name for x in c.list_collections()])" # chroma_db 컬렉션 로드
+python -m ingestion.indexing.build_knowledge_base --data_dir ../data/raw --collection medical_knowledge # chroma_db 컬렉션이 없을 경우 생성
+python -c "from retrieval.sparse.bm25_retriever import BM25Retriever; r=BM25Retriever(collection_name='medical_knowledge', db_path='../chroma_db'); print(r.retrieve('고혈압 치료', top_k=5))" # bm25 index 생성
 """
 
 class BM25Retriever:
     """
-    BM25 寃?됯린.
+    BM25 검색기.
 
-    ?ъ슜 ??
+    사용 예:
         retriever = BM25Retriever(collection_name="medical_knowledge")
-        results = retriever.retrieve("怨좏삁??移섎즺", top_k=5)
+        results = retriever.retrieve("고혈압 치료", top_k=5)
     """
 
     _DOMAIN_TOKEN_PATTERN = re.compile(
         r"\b(?:[A-Z]{2,}[A-Z0-9]*|[A-Za-z]+[0-9]+[A-Za-z0-9]*|[A-Za-z0-9]+(?:[+\-_/][A-Za-z0-9]+)+|[0-9]+(?:\.[0-9]+)?(?:mg|g|mcg|ml|l|mmhg|mmol/?l|mg/?dl|iu|u|%)?)\b",
         flags=re.IGNORECASE,
     )
-    _KOREAN_WORD_PATTERN = re.compile(r"[媛-??{2,}")
+    _KOREAN_WORD_PATTERN = re.compile(r"[가-힣]{2,}")
     _KIWI_ALLOWED_POS = {"NNG", "NNP", "SL", "SN", "XR"}
 
     def __init__(
@@ -56,7 +56,7 @@ class BM25Retriever:
         self._kiwi_checked = False
 
     def _get_kiwi(self) -> Any | None:
-        """kiwipiepy.Kiwi lazy 濡쒕뱶. 誘몄꽕移???None 諛섑솚."""
+        """kiwipiepy.Kiwi lazy 로드. 미설치 시 None 반환."""
         if self._kiwi_checked:
             return self._kiwi
 
@@ -65,18 +65,18 @@ class BM25Retriever:
             from kiwipiepy import Kiwi  # type: ignore
 
             self._kiwi = Kiwi()
-            logger.info("[BM25Retriever] Kiwi ?뺥깭??遺꾩꽍湲?濡쒕뱶 ?꾨즺")
+            logger.info("[BM25Retriever] Kiwi 형태소 분석기 로드 완료")
         except Exception as exc:
             self._kiwi = None
             logger.warning(
-                f"[BM25Retriever] Kiwi 濡쒕뱶 ?ㅽ뙣, regex ?좏겙?붾줈 fallback: {exc}"
+                f"[BM25Retriever] Kiwi 로드 실패, regex 토큰화로 fallback: {exc}"
             )
         return self._kiwi
 
     def _tokenize(self, text: str) -> list[str]:
         """
-        ?섎즺 ?꾨찓???좏겙? regex濡??좎텛異?蹂댄샇?섍퀬,
-        ?섎㉧吏 ?쒓?? Kiwi ?뺥깭??遺꾩꽍?쇰줈 ?좏겙??
+        도메인 패턴 토큰은 regex로 추출해 보존하고,
+        나머지 텍스트는 Kiwi 형태소 분석으로 토큰화.
         """
         if not text or not text.strip():
             return []
@@ -103,7 +103,7 @@ class BM25Retriever:
                     tokens.append(surface)
             except Exception as exc:
                 logger.warning(
-                    f"[BM25Retriever] Kiwi 遺꾩꽍 ?ㅽ뙣, regex ?쒓? ?좏겙 fallback: {exc}"
+                    f"[BM25Retriever] Kiwi 분석 실패, regex 한국어 토큰 fallback: {exc}"
                 )
                 tokens.extend(
                     t.lower() for t in self._KOREAN_WORD_PATTERN.findall(remaining)
@@ -115,15 +115,15 @@ class BM25Retriever:
             tokens = [t.lower() for t in normalized.split() if t.strip()]
         return tokens
 
-    # ?? ?몃뜳??援ъ텞 ????????????????????????????????????????????
-
+    # 인덱스 구축
+    
     def _build_index(self) -> None:
-        """ChromaDB?먯꽌 ?꾩껜 corpus瑜?遺덈윭? BM25 ?몃뜳??援ъ텞."""
+        """ChromaDB에서 전체 corpus를 불러와 BM25 인덱스 구축."""
         try:
             from rank_bm25 import BM25Okapi  # type: ignore
         except ImportError as exc:
             raise ImportError(
-                "rank-bm25 ?⑦궎吏媛 ?꾩슂?⑸땲?? pip install rank-bm25"
+                "rank-bm25 패키지가 필요합니다: pip install rank-bm25"
             ) from exc
 
         try:
@@ -132,7 +132,7 @@ class BM25Retriever:
             collection = client.get_collection(self.collection_name)
             result = collection.get(include=["documents", "metadatas"])
         except Exception as exc:
-            logger.error(f"[BM25Retriever] ChromaDB 濡쒕뱶 ?ㅽ뙣: {exc}")
+            logger.error(f"[BM25Retriever] ChromaDB 로드 실패: {exc}")
             self._bm25 = None
             return
 
@@ -148,10 +148,10 @@ class BM25Retriever:
         tokenized = [self._tokenize(doc["text"]) for doc in self._corpus_docs]
         self._bm25 = BM25Okapi(tokenized)
         logger.info(
-            f"[BM25Retriever] ?몃뜳??援ъ텞 ?꾨즺: {len(self._corpus_docs)}媛?臾몄꽌"
+            f"[BM25Retriever] 인덱스 구축 완료: {len(self._corpus_docs)}개 문서"
         )
 
-    # ?? 寃?????????????????????????????????????????????????????
+    # 검색
 
     def retrieve(
         self,
@@ -160,9 +160,9 @@ class BM25Retriever:
         min_score: float = 0.0,
     ) -> list[dict]:
         """
-        BM25 寃??
+        BM25 검색.
 
-        諛섑솚媛?
+        반환값:
             list of {id, text, metadata, bm25_score}
         """
         if self._bm25 is None:
@@ -193,7 +193,7 @@ class BM25Retriever:
         return results
 
     def rebuild_index(self) -> None:
-        """?몃뜳??媛뺤젣 ?ш뎄異?(?좉퇋 臾몄꽌 異붽? ???몄텧)."""
+        """인덱스 강제 재구축(신규 문서 추가 후 호출)."""
         self._bm25 = None
         self._corpus_docs = []
         self._build_index()

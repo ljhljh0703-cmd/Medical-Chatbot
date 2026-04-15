@@ -1,8 +1,8 @@
 """
-ChromaDB 甕겸돧苑???쎈꽅????묐쓠.
+ChromaDB 벡터 스토어 래퍼.
 
-????筌롫???怨쀬뵠?? c_id, domain, chunk_index, source_spec, token_count
-鈺곌퀬?????醫롪텢???癒?땾(distance) ??釉?獄쏆꼹??
+저장 메타데이터: c_id, domain, chunk_index, source_spec, token_count
+조회 시 유사도 점수(distance) 포함 반환.
 """
 
 from pathlib import Path
@@ -14,8 +14,8 @@ DEFAULT_CHROMA_DB_PATH = (Path(__file__).resolve().parents[3] / "chroma_db").res
 
 class ChromaStore:
     """
-    ChromaDB ?뚎됱젂??CRUD ?????
-    collection_name, persist_directory??config/settings.py?癒?퐣 雅뚯눘??
+    ChromaDB 컬렉션 CRUD 클래스.
+    collection_name, persist_directory는 config/settings.py에서 주입.
     """
 
     def __init__(
@@ -29,7 +29,7 @@ class ChromaStore:
         self._collection = None
 
     def _get_collection(self):
-        """?뚎됱젂??륁뱽 lazy ?λ뜃由?酉釉??獄쏆꼹??"""
+        """컬렉션을 lazy 초기화하여 반환."""
         if self._collection is not None:
             return self._collection
         try:
@@ -39,9 +39,9 @@ class ChromaStore:
                 name=self.collection_name,
                 metadata={"hnsw:space": "cosine"},  # cosine ?醫롪텢??????
             )
-            logger.info(f"[ChromaStore] ?뚎됱젂??'{self.collection_name}' ?怨뚭퍙 ?袁⑥┷")
+            logger.info(f"[ChromaStore] 컬렉션 '{self.collection_name}' 연결 완료")
         except ImportError:
-            raise ImportError("[ChromaStore] chromadb ???텕筌왖揶쎛 ?袁⑹뒄??몃빍??")
+            raise ImportError("[ChromaStore] chromadb 패키지가 필요합니다.")
         return self._collection
 
     def save(
@@ -51,7 +51,7 @@ class ChromaStore:
         ids: list[str],
         documents: list[str],
     ) -> None:
-        """筌?寃??袁⑥퓢??묐８李???怨쀬뵠?嫄붾９?앲눧紐꾩뱽 ChromaDB??????"""
+        """청크 임베딩·메타데이터·원문을 ChromaDB에 저장."""
         col = self._get_collection()
         col.upsert(
             embeddings=embeddings,
@@ -59,7 +59,7 @@ class ChromaStore:
             ids=ids,
             documents=documents,
         )
-        logger.info(f"[ChromaStore] {len(ids)}揶?筌?寃?upsert ?袁⑥┷")
+        logger.info(f"[ChromaStore] {len(ids)}개 청크 upsert 완료")
 
     def query(
         self,
@@ -68,14 +68,14 @@ class ChromaStore:
         where: Optional[dict] = None,
     ) -> dict:
         """
-        ?묒눖???袁⑥퓢??뱀몵嚥?top_k ?醫롪텢 筌?寃?野꺜??
+        쿼리 임베딩으로 top_k 유사 청크 검색.
 
-        獄쏆꼹???類ㅻ뻼 (chromadb ?癒?궚):
+        반환 형식 (chromadb 원본):
         {
             "ids": [[...]],
             "documents": [[...]],
             "metadatas": [[...]],
-            "distances": [[...]]   ??cosine distance (?????롮쨯 ?醫롪텢)
+            "distances": [[...]]   # cosine distance (낮을수록 유사)
         }
         """
         col = self._get_collection()
@@ -89,11 +89,11 @@ class ChromaStore:
         return col.query(**kwargs)
 
     def count(self) -> int:
-        """?뚎됱젂??뤿퓠 ???貫留??袁⑷퍥 筌?寃???獄쏆꼹??"""
+        """컬렉션에 저장된 전체 청크 수 반환."""
         return self._get_collection().count()
 
     def delete_collection(self) -> None:
-        """?뚎됱젂???袁⑷퍥 ????(???꾤빊???????."""
+        """컬렉션 전체 삭제 (재구축 시 사용)."""
         if self._client:
             self._client.delete_collection(self.collection_name)
             self._collection = None
