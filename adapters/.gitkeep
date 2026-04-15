@@ -1,0 +1,23 @@
+# LoRA 어댑터 저장소
+
+이 디렉토리에는 미세 조정(LoRA)된 어댑터가 저장됩니다.
+
+## 사용 방법
+
+```bash
+# 학습 후 생성되는 위치
+└── adapters/
+    └── medical_lora/
+        ├── adapter_config.json
+        ├── adapter_model.bin
+        └── training_args.bin
+```
+
+## 환경 변수
+
+```bash
+# .env에서
+LORA_ADAPTER_PATH=./adapters/medical_lora
+```
+
+이 디렉토리는 `.gitignore`에 등록되어 있으므로, 로컬 개발 시에만 사용하고 Git에 커밋되지 않습니다.
