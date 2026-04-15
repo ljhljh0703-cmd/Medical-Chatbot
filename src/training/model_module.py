@@ -3,7 +3,9 @@
 
 역할:
   - Qwen 토크나이저 + 모델 로드 (finetune_lora.py 모델 로딩 흡수)
+  - BitsAndBytes 4-bit 양자화 (선택)
   - LoRA 설정 적용 (PEFT)
+  - LoRA 어댑터 병합 + 저장 (merge_adapter.py 흡수)
   - train_config.yaml dict 연동
 
 기존 training/finetune_lora.py (모델 부분) + training/merge_adapter.py 로직 통합.
@@ -11,62 +13,62 @@
 
 import torch
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig
-from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training, PeftModel
+from __future__ import annotations
 
-class MedicalModelModule:
+from typing import Optional
+
+
+# ─── 토크나이저 ──────────────────────────────────────────────────────────────
+def load_tokenizer(model_name: str, trust_remote_code: bool = True):
+    """AutoTokenizer 로드. pad_token 미설정 시 eos_token으로 대체."""
+    from transformers import AutoTokenizer  # type: ignore
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_name, trust_remote_code=trust_remote_code
+    )
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    return tokenizer
+
+
+# ─── 베이스 모델 로드 ────────────────────────────────────────────────────────
+def load_base_model(
+    model_name: str,
+    torch_dtype: str = "float16",
+    device_map: str = "auto",
+    use_quantization: bool = True,
+    trust_remote_code: bool = True,
+):
     """
-    [클래스 개요] 
-    거대한 LLM(예: Qwen 7B)을 일반적인 GPU(VRAM 24GB 이하)에서도 
-    메모리 터짐(OOM) 없이 원활하게 학습시킬 수 있도록 모델을 압축하고 준비하는 핵심 모듈입니다.
+    베이스 모델 로드.
+
+    use_quantization=True 이면 BitsAndBytes 4-bit 양자화 적용.
+    VRAM 부족 환경(Colab T4)에서 권장.
     """
+    import torch  # type: ignore
+    from transformers import AutoModelForCausalLM  # type: ignore
 
-    @staticmethod
-    def load_base_model(model_id, quant_cfg):
-        """
-        [기능] 
-        원본 AI 모델(Base Model)을 4-bit로 극단적으로 압축(양자화)하여 메모리에 올립니다.
-        
-        [예상 결과]
-        원래 로딩 시 약 28GB가 필요한 7B 모델이, 이 함수를 거치면 약 5~6GB 수준으로 다이어트하여 로드됩니다.
-        """
-        
-        # 1. 연산 정밀도 설정 (YAML에서 읽어옴)
-        # 컴퓨터가 소수점을 계산할 때 사용할 방식을 정합니다. bfloat16은 AI 학습에 특화되어 속도가 빠릅니다.
-        compute_dtype = torch.float16 if quant_cfg.get('bnb_4bit_compute_dtype') == "float16" else torch.bfloat16
+    dtype_map = {
+        "float16": torch.float16,
+        "bfloat16": torch.bfloat16,
+        "float32": torch.float32,
+    }
+    dtype = dtype_map.get(torch_dtype, torch.float16)
 
-        # 2. 양자화(Quantization) 설정
-        # 모델의 '가중치(뇌 세포)'를 16비트에서 4비트로 찌그러뜨려 용량을 줄이는 마법입니다.
-        bnb_config = BitsAndBytesConfig(
-            # load_in_4bit: 모델을 4비트 크기로 메모리에 올릴지 여부 (True = 메모리 대폭 절약)
-            load_in_4bit=quant_cfg.get('load_in_4bit', True),
-            
-            # bnb_4bit_quant_type: 숫자를 압축하는 방식 ('nf4'는 정규분포를 활용해 4비트 압축의 정보 손실을 최소화하는 최신 기법)
-            bnb_4bit_quant_type=quant_cfg.get('bnb_4bit_quant_type', "nf4"),
-            
-            # bnb_4bit_compute_dtype: 저장만 4비트로 하고, 실제 계산할 때는 16비트로 풀어서 계산하도록 지정 (성능 유지)
-            bnb_4bit_compute_dtype=compute_dtype,
-            
-            # bnb_4bit_use_double_quant: 압축 과정에서 생기는 '메타데이터'조차 한 번 더 압축할지 여부 (VRAM 추가 절약)
-            bnb_4bit_use_double_quant=quant_cfg.get('bnb_4bit_use_double_quant', True)
-        )
+    bnb_config = None
+    if use_quantization:
+        try:
+            from transformers import BitsAndBytesConfig  # type: ignore
 
-        # 3. 베이스 모델 로드
-        model = AutoModelForCausalLM.from_pretrained(
-            model_id,
-            quantization_config=bnb_config,
-            
-            # device_map="auto": GPU가 여러 대이거나 GPU/CPU 메모리가 섞여 있을 때, 알아서 최적의 위치에 쪼개서 올려줌
-            device_map="auto",
-            
-            # attn_implementation="sdpa": PyTorch 최신 버전에 있는 '초고속 어텐션 계산기'를 켜서 학습 속도를 1.5배 이상 올림
-            attn_implementation="sdpa",
-            torch_dtype=compute_dtype
-        )
-        
-        # 4. 4비트 학습을 위한 최종 준비 (필수 안전장치)
-        # 기울기 체크포인팅(Gradient Checkpointing)을 활성화하여, 
-        # 학습 중 지나간 계산 값을 메모리에서 지우고 필요할 때 다시 계산하도록 만들어 VRAM을 극적으로 아낍니다.
-        return prepare_model_for_kbit_training(model)
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=dtype,
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4",
+            )
+        except ImportError:
+            print("[model_module] bitsandbytes 없음 — 양자화 비활성화")
 
     @staticmethod
     def apply_lora(model, train_cfg):
@@ -107,3 +109,22 @@ class MedicalModelModule:
         
         # 설정한 LoRA(메모지)를 실제 베이스 모델(뇌)에 부착하여 최종 학습용 모델을 반환합니다.
         return get_peft_model(model, peft_config)
+
+    @staticmethod
+    def load_existing_lora_for_training(model, checkpoint_path):
+        """
+        [기능] 
+        백지상태의 LoRA가 아닌, 이미 특정 스테이지(예: Stage 1)에서 
+        학습이 완료된 LoRA 체크포인트를 불러와서 '이어서 학습'할 수 있도록 장착합니다.
+        
+        [핵심 파라미터]
+        is_trainable=True : 이 옵션이 없으면 가중치가 읽기 전용(Read-only)으로 고정되어 
+        Loss가 떨어지지 않고 에러가 발생합니다.
+        """
+        print(f"🔄 [Load] 기존 학습된 LoRA 가중치를 불러옵니다: {checkpoint_path}")
+        model = PeftModel.from_pretrained(
+            model, 
+            checkpoint_path, 
+            is_trainable=True  # 이어서 파인튜닝을 하기 위한 핵심 마스터키!
+        )
+        return model
