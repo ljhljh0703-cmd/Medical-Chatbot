@@ -1,38 +1,48 @@
-#Python cache
-pycache/
-*.pyc
+
+# Python
+__pycache__/
+*.py[cod]
 *.pyo
 *.pyd
+.Python
+*.egg-info/
+dist/
+build/
 
-#virtual env
-venv/
-.env/
+# 환경 변수
+.env
+.env.*
+
+# 가상환경
 .venv/
+venv/
+env/
 
-#Hydra outputs
-outputs/
-multirun/
-
-#logs
-logs/
-*.log
-
-#checkpoints / model weights
-checkpoints/
+# 모델 가중치 (용량이 크므로 별도 관리)
+models/
+*.bin
+*.safetensors
 *.pt
-.pth
+*.ckpt
 
-#data artifacts
-# /data/
-# !/data/.gitkeep
-# /datasets/
+# 벡터 DB
+chroma_db/
 
-#system files
-.DS_Store
-Thumbs.db
+# 데이터 (원본 데이터는 별도 보관)
+data/raw/
+data/processed/
 
-#editor
-.vscode/
-
-#notebook cache
+# Jupyter
 .ipynb_checkpoints/
+*.ipynb
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# 로그
+*.log
+logs/

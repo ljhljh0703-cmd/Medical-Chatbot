@@ -1,0 +1,58 @@
+# ─────────────────────────────────────────────────────────────
+# Qwen2.5-7B LoRA Fine-Tuning 하이퍼파라미터 설정
+# 사용 위치: src/training/main_train.py
+# ─────────────────────────────────────────────────────────────
+
+model:
+  name: "Qwen/Qwen2.5-7B-Instruct"   # HuggingFace Hub ID 또는 로컬 경로
+  trust_remote_code: true
+  torch_dtype: "float16"              # "float16" | "bfloat16" | "float32"
+  device_map: "auto"
+
+quantization:
+  enabled: true                       # Colab T4/A100 VRAM 절약 시 true
+  load_in_4bit: true
+  bnb_4bit_compute_dtype: "float16"
+  bnb_4bit_use_double_quant: true
+  bnb_4bit_quant_type: "nf4"
+
+lora:
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj"]
+  bias: "none"
+  task_type: "CAUSAL_LM"
+
+training:
+  output_dir: "models/qwen-lora-medical"
+  num_train_epochs: 3
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 2.0e-4
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  fp16: true
+  bf16: false
+  logging_steps: 50
+  save_strategy: "epoch"
+  save_total_limit: 2
+  evaluation_strategy: "epoch"
+  load_best_model_at_end: true
+  report_to: "none"
+  seed: 42
+
+sft:
+  max_seq_length: 2048
+  dataset_text_field: "text"          # format_example 결과 필드명
+  packing: false                      # True = 짧은 샘플 연결
+
+data:
+  train_path: "data/processed/train.json"
+  eval_path: "data/processed/test.json"
+  format: "alpaca"                    # "alpaca" | "cot" | "jsonl"
+
+output:
+  adapter_dir: "models/qwen-lora-medical"
+  merged_dir: "models/qwen-merged-medical"
+  log_dir: "logs/train"
