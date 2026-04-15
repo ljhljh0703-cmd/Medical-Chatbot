@@ -80,6 +80,7 @@ class ChatService:
             retrieved_sources=retrieved_chunks,
             red_flag_triggered=red_flag.triggered,
             mode=active_mode,
+            top_k=settings.top_k,
         )
 
         logger.info(f"[ChatService] 응답 완료 | red_flag={red_flag.triggered} | sources={len(retrieved_chunks)}")

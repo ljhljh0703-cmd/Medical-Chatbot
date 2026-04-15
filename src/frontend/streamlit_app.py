@@ -21,7 +21,7 @@ if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
 # ─── 상수 ───────────────────────────────────────────────────────────────────
-PAGE_TITLE = "🏥 내과 의료 챗봇"
+PAGE_TITLE = "🏥 내과 AI 상담"
 RED_FLAG_COLOR = "#FF4B4B"
 GROUND_TRUTH_BG = "#F0FFF4"
 CHATBOT_BG = "#F0F4FF"
@@ -41,6 +41,16 @@ st.set_page_config(
 st.markdown(
     """
     <style>
+    .chat-header {
+        background: linear-gradient(90deg, #4B8BF5, #2ECC71);
+        color: white;
+        padding: 14px 18px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+    }
+    .chat-header h2 { margin: 0; }
+    .chat-header p { margin: 0; font-size:0.9em; opacity:0.95 }
+
     .chat-bubble-bot {
         background: #F0F4FF;
         border-radius: 12px;
@@ -98,10 +108,10 @@ def _init_session_state() -> None:
         "chat_history": [],      # list[dict] — query/chatbot_answer/ground_truth/sources/red_flag/mode
         "mode": "B",             # A / B / C
         "top_k": 5,
+<<<<<<< HEAD
+=======
         "show_ground_truth": True,
-        "eval_results": None,    # 평가 JSON 로드 결과
-        "chat_service": None,    # ChatService 인스턴스 캐시
-        "service_error": None,   # 서비스 초기화 에러 메시지
+        "show_ground_truth": True,지
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -141,11 +151,11 @@ def _render_sidebar() -> None:
             "https://img.icons8.com/fluency/96/000000/hospital.png",
             width=72,
         )
-        st.title("내과 의료 챗봇")
-        st.caption("Qwen2.5-7B + RAG + LoRA")
-        st.divider()
-
-        # 모드 선택
+<<<<<<< HEAD
+        st.title("내과봇")
+        st.caption("내과 AI 상담 · 보통 몇 분 내에 응답합니다.")
+        st.title("내과봇")
+        st.caption("내과 AI 상담 · 보통 몇 분 내에 응답합니다.")
         st.subheader("⚙️ 생성 모드")
         mode = st.radio(
             "실험 조건을 선택하세요:",
@@ -175,6 +185,14 @@ def _render_sidebar() -> None:
 
         st.divider()
 
+<<<<<<< HEAD
+=======
+        # 표시 옵션
+        st.subheader("🖥 표시 옵션")
+        st.session_state["show_ground_truth"] = st.toggle(
+            "정답(Ground Truth) 표시",
+            value=st.session_state["show_ground_truth"],
+        )
         # 표시 옵션
         st.subheader("🖥 표시 옵션")
         st.session_state["show_ground_truth"] = st.toggle(
@@ -184,30 +202,36 @@ def _render_sidebar() -> None:
 
         st.divider()
 
-        # 채팅 초기화
-        if st.button("🗑️ 대화 초기화", use_container_width=True):
-            st.session_state["chat_history"] = []
-            st.rerun()
-
-        # 현재 상태 정보
-        st.divider()
-        st.caption(
             f"**현재 모드:** {st.session_state['mode']}  \n"
             f"**top-k:** {st.session_state['top_k']}  \n"
             f"**대화 수:** {len(st.session_state['chat_history'])}"
         )
 
+<<<<<<< HEAD
+        # 평가 대시보드 / 설정을 사이드바 expander로 이동
+        st.divider()
+        with st.expander("📊 평가 대시보드", expanded=False):
+            try:
+                _tab_evaluation()
+            except Exception as e:
+                st.warning(f"평가 대시보드를 로드할 수 없습니다: {e}")
 
-# ─── 채팅 탭 헬퍼 ────────────────────────────────────────────────────────────
-def _render_red_flag_banner(keywords: list[str] | None = None) -> None:
-    kw_str = ", ".join(keywords) if keywords else ""
-    banner = (
-        "🚨 **긴급 상황이 감지되었습니다.**  \n"
-        "즉시 119에 신고하거나 가까운 응급실을 방문하세요.  \n"
-    )
-    if kw_str:
-        banner += f"감지 키워드: `{kw_str}`"
-    st.markdown(
+        with st.expander("⚙️ 설정", expanded=False):
+            try:
+        # 평가 대시보드 / 설정을 사이드바 expander로 이동
+        st.divider()
+        with st.expander("📊 평가 대시보드", expanded=False):
+            try:
+                _tab_evaluation()
+            except Exception as e:
+                st.warning(f"평가 대시보드를 로드할 수 없습니다: {e}")
+
+        with st.expander("⚙️ 설정", expanded=False):
+            try:
+                _tab_settings()
+            except Exception as e:
+                st.warning(f"설정 패널을 로드할 수 없습니다: {e}")
+
         f'<div class="red-flag-banner">{banner}</div>',
         unsafe_allow_html=True,
     )
@@ -280,8 +304,13 @@ def _render_chat_history() -> None:
         # 답변 쌍
         _render_answer_pair(
             chatbot_answer=entry["chatbot_answer"],
+<<<<<<< HEAD
+            ground_truth=None,
+            show_gt=False,
+=======
             ground_truth=entry.get("ground_truth"),
             show_gt=st.session_state["show_ground_truth"],
+>>>>>>> b10249884822f0ef1ceaa52a7daa5cb87bd6a4e3
         )
 
         # 참조 소스
@@ -291,7 +320,12 @@ def _render_chat_history() -> None:
         mode_badge = {"A": "🔵 A", "B": "🟡 B", "C": "🟢 C"}.get(
             entry.get("mode", "A"), entry.get("mode", "A")
         )
+<<<<<<< HEAD
+        top_k_info = entry.get("top_k", st.session_state.get("top_k"))
+        st.caption(f"생성 모드: {mode_badge}  ·  top-k: {top_k_info}")
+=======
         st.caption(f"생성 모드: {mode_badge}")
+>>>>>>> b10249884822f0ef1ceaa52a7daa5cb87bd6a4e3
         st.divider()
 
 
@@ -312,6 +346,21 @@ def _tab_chat() -> None:
 
     # 입력창
     with st.form(key="chat_form", clear_on_submit=True):
+<<<<<<< HEAD
+        query = st.text_area(
+            "질문을 입력하세요",
+            placeholder="예: 고혈압 환자에게 베타차단제를 처방할 때 주의사항은?",
+            height=120,
+            label_visibility="collapsed",
+        )
+        submitted = st.form_submit_button("📨 질문하기", use_container_width=True)
+
+    if submitted and query.strip():
+        with st.spinner("답변 생성 중…"):
+            if svc is None:
+                # 데모 응답 (서비스 없을 때)
+                result_dict = _demo_response(query)
+=======
         col_input, col_gt = st.columns([3, 2])
         with col_input:
             query = st.text_area(
@@ -335,6 +384,7 @@ def _tab_chat() -> None:
             if svc is None:
                 # 데모 응답 (서비스 없을 때)
                 result_dict = _demo_response(query, ground_truth)
+>>>>>>> b10249884822f0ef1ceaa52a7daa5cb87bd6a4e3
             else:
                 try:
                     from domain.models.chat_result import ChatResult
@@ -342,22 +392,36 @@ def _tab_chat() -> None:
                     result: ChatResult = svc.handle(
                         query=query.strip(),
                         mode=st.session_state["mode"],
+<<<<<<< HEAD
+                        ground_truth=None,
+=======
                         ground_truth=ground_truth,
+>>>>>>> b10249884822f0ef1ceaa52a7daa5cb87bd6a4e3
                     )
                     result_dict = {
                         "query": result.query,
                         "chatbot_answer": result.chatbot_answer,
+<<<<<<< HEAD
+=======
                         "ground_truth": result.ground_truth,
+>>>>>>> b10249884822f0ef1ceaa52a7daa5cb87bd6a4e3
                         "retrieved_sources": [
                             s.model_dump() for s in result.retrieved_sources
                         ],
                         "red_flag_triggered": result.red_flag_triggered,
                         "mode": result.mode,
+<<<<<<< HEAD
+                        "top_k": result.top_k or st.session_state["top_k"],
+=======
+>>>>>>> b10249884822f0ef1ceaa52a7daa5cb87bd6a4e3
                     }
                 except Exception as exc:
                     st.error(f"❌ 오류 발생: {exc}")
                     return
+<<<<<<< HEAD
+=======
 
+>>>>>>> b10249884822f0ef1ceaa52a7daa5cb87bd6a4e3
         # 기록에 추가 (최대 MAX_HISTORY)
         st.session_state["chat_history"].append(result_dict)
         if len(st.session_state["chat_history"]) > MAX_HISTORY:
@@ -366,7 +430,11 @@ def _tab_chat() -> None:
         st.rerun()
 
 
+<<<<<<< HEAD
+def _demo_response(query: str) -> dict:
+=======
 def _demo_response(query: str, ground_truth: str | None) -> dict:
+>>>>>>> b10249884822f0ef1ceaa52a7daa5cb87bd6a4e3
     """서비스 없을 때 보여주는 데모 응답."""
     return {
         "query": query,
@@ -374,10 +442,17 @@ def _demo_response(query: str, ground_truth: str | None) -> dict:
             "⚠️ [데모 모드] 실제 LLM/ChromaDB가 연결되지 않았습니다.  \n"
             "`.env` 파일에 `OPENAI_API_KEY`를 설정하거나 Qwen 모델 경로를 지정하세요."
         ),
+<<<<<<< HEAD
+        "retrieved_sources": [],
+        "red_flag_triggered": False,
+        "mode": st.session_state["mode"],
+        "top_k": st.session_state["top_k"],
+=======
         "ground_truth": ground_truth,
         "retrieved_sources": [],
         "red_flag_triggered": False,
         "mode": st.session_state["mode"],
+>>>>>>> b10249884822f0ef1ceaa52a7daa5cb87bd6a4e3
     }
 
 
@@ -588,6 +663,16 @@ def main() -> None:
     _render_sidebar()
 
     st.title(PAGE_TITLE)
+<<<<<<< HEAD
+    st.markdown(
+        "<div class='chat-header'><h2>내과봇</h2><p>내과 AI 상담 · 보통 몇 분 내에 응답합니다.</p></div>",
+        unsafe_allow_html=True,
+    )
+    st.divider()
+
+    # 메인: 채팅 전용
+    _tab_chat()
+=======
     st.caption(
         "내과 전문 의료 QA 챗봇 | Qwen2.5-7B + RAG + LoRA  |  "
         "⚠️ 본 서비스는 참고용이며, 의학적 결정은 전문의와 상담하세요."
@@ -606,6 +691,7 @@ def main() -> None:
 
     with tab_settings:
         _tab_settings()
+>>>>>>> b10249884822f0ef1ceaa52a7daa5cb87bd6a4e3
 
 
 if __name__ == "__main__":

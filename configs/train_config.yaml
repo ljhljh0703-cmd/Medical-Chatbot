@@ -3,56 +3,44 @@
 # 사용 위치: src/training/main_train.py
 # ─────────────────────────────────────────────────────────────
 
+#모델 명 및 출력 설정
 model:
-  name: "Qwen/Qwen2.5-7B-Instruct"   # HuggingFace Hub ID 또는 로컬 경로
-  trust_remote_code: true
-  torch_dtype: "float16"              # "float16" | "bfloat16" | "float32"
-  device_map: "auto"
+  id: "Qwen/Qwen2.5-7B-Instruct"
+  output_dir: "src/training/results"
+  final_dir: "src/training/lora_final"
 
+#4-bit 양자화 설정
 quantization:
-  enabled: true                       # Colab T4/A100 VRAM 절약 시 true
+  enabled: true
   load_in_4bit: true
   bnb_4bit_compute_dtype: "float16"
   bnb_4bit_use_double_quant: true
   bnb_4bit_quant_type: "nf4"
 
-lora:
-  r: 16
-  lora_alpha: 32
-  lora_dropout: 0.05
-  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj"]
-  bias: "none"
-  task_type: "CAUSAL_LM"
+data:
+  stage1: "data/processed/merged_단답형.jsonl"
+  stage2: "data/processed/merged_서술형.jsonl"
+  stage3: "data/processed/merged_객관식.jsonl"
+
 
 training:
-  output_dir: "models/qwen-lora-medical"
-  num_train_epochs: 3
-  per_device_train_batch_size: 4
-  gradient_accumulation_steps: 4
-  learning_rate: 2.0e-4
+
+  #8번 학습 후 가중치 업데이트
+  gradient_accumulation_steps: 8
   lr_scheduler_type: "cosine"
   warmup_ratio: 0.05
-  fp16: true
-  bf16: false
-  logging_steps: 50
-  save_strategy: "epoch"
-  save_total_limit: 2
-  evaluation_strategy: "epoch"
-  load_best_model_at_end: true
-  report_to: "none"
-  seed: 42
+  
 
-sft:
-  max_seq_length: 2048
-  dataset_text_field: "text"          # format_example 결과 필드명
-  packing: false                      # True = 짧은 샘플 연결
-
-data:
-  train_path: "data/processed/train.json"
-  eval_path: "data/processed/test.json"
-  format: "alpaca"                    # "alpaca" | "cot" | "jsonl"
-
-output:
-  adapter_dir: "models/qwen-lora-medical"
-  merged_dir: "models/qwen-merged-medical"
-  log_dir: "logs/train"
+  #기본 LoRA 설정, 16차원, 32% 반영, 5%로 무작위 끄기
+  lora_r: 16
+  #반영 배율을 2배로 설정, 32/16=2
+  lora_alpha: 32
+  lora_dropout: 0.05
+  #Transformer 모든 부분에 적용
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+  
+  #각 stage 별 학습 파라미터, L4 환경용
+  stages:
+    stage1: {max_len: 640,  batch: 4, lr: 0.0002, epochs: 2}
+    stage2: {max_len: 896,  batch: 2, lr: 0.0001, epochs: 2}
+    stage3: {max_len: 1024, batch: 2, lr: 0.00005, epochs: 2}
