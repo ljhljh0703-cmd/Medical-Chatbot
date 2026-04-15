@@ -5,8 +5,11 @@ ChromaDB 벡터 스토어 래퍼.
 조회 시 유사도 점수(distance) 포함 반환.
 """
 
+from pathlib import Path
 from typing import Optional
 from observability.logger import logger
+
+DEFAULT_CHROMA_DB_PATH = (Path(__file__).resolve().parents[3] / "chroma_db").resolve()
 
 
 class ChromaStore:
@@ -18,7 +21,7 @@ class ChromaStore:
     def __init__(
         self,
         collection_name: str = "medical_knowledge",
-        persist_directory: str = "./chroma_db",
+        persist_directory: str = str(DEFAULT_CHROMA_DB_PATH),
     ):
         self.collection_name = collection_name
         self.persist_directory = persist_directory
@@ -72,7 +75,7 @@ class ChromaStore:
             "ids": [[...]],
             "documents": [[...]],
             "metadatas": [[...]],
-            "distances": [[...]]   ← cosine distance (낮을수록 유사)
+            "distances": [[...]]   # cosine distance (낮을수록 유사)
         }
         """
         col = self._get_collection()
