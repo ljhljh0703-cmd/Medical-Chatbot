@@ -1,0 +1,39 @@
+# ── API 서버 ──────────────────────────────────────────────
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-dotenv
+
+# ── 프론트엔드 ────────────────────────────────────────────
+streamlit
+pandas
+
+# ── LLM / 모델 ───────────────────────────────────────────
+openai                     # LLM-as-Judge, 임베딩(text-embedding-3-small)
+transformers>=4.40.0       # Qwen2.5 지원 버전
+peft>=0.10.0               # LoRA (학습 시)
+trl>=0.8.0                 # SFTTrainer (학습 시)
+bitsandbytes               # 4/8bit 양자화 (Colab)
+torch>=2.2.0               # GPU 추론
+
+# ── RAG / 벡터 DB ─────────────────────────────────────────
+chromadb
+sentence-transformers      # 임베딩 모델 (로컬 fallback)
+
+# ── 데이터셋 ─────────────────────────────────────────────
+datasets>=2.18.0           # HuggingFace datasets (학습 시)
+
+# ── 평가 메트릭 ───────────────────────────────────────────
+bert-score                 # BERTScore
+rouge-score                # ROUGE-L (선택적 백업)
+
+# ── 유틸리티 ─────────────────────────────────────────────
+accelerate>=0.28.0         # 분산 학습 / device_map 지원
+
+# ── 하이브리드 검색 ────────────────────────────────────────
+rank-bm25>=0.2.2           # BM25 희소 검색
+
+# ── Config 파싱 ───────────────────────────────────────────
+pyyaml>=6.0                # YAML 설정 파일 파싱
+
