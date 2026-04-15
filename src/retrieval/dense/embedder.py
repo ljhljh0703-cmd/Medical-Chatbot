@@ -35,7 +35,7 @@ class Embedder:
       - "openai:<model>"  예) "openai:text-embedding-3-small"
       - "local:<model>"   예) "local:snunlp/KR-SBERT-V40K-klueNLI-augSTS"
     """
-    def __init__(self, embedding_model: str = "local:jhgan/ko-sroberta-multitask", api_key: Optional[str] = None):
+    def __init__(self, embedding_model: str = "jhgan/ko-sroberta-multitask", api_key: Optional[str] = None):
         self.api_key = api_key
         self.embedding_model = embedding_model # This should be the default local model
         self.client = None
