@@ -6,7 +6,7 @@ Loader → Cleaner → Chunker → Embedder → ChromaStore
 실행 예시:
     python -m ingestion.indexing.build_knowledge_base \
         --data_dir data/raw \
-        --collection medical_inner
+        --collection medical_knowledge
 """
 
 import argparse
@@ -24,7 +24,7 @@ class KnowledgeBaseBuilder:
     def __init__(
         self,
         data_dir: str,
-        collection_name: str = "medical_inner",
+        collection_name: str = "medical_knowledge",
         target_domain: int = 17,
         max_tokens: int = 512,
         batch_size: int = 64,
@@ -80,7 +80,7 @@ class KnowledgeBaseBuilder:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="지식당 구축 파이프라인")
     parser.add_argument("--data_dir", required=True, help="원천 JSON 데이터 디렉터리")
-    parser.add_argument("--collection", default="medical_inner", help="ChromaDB 콜렉션 이름")
+    parser.add_argument("--collection", default="medical_knowledge", help="ChromaDB 콜렉션 이름")
     parser.add_argument("--domain", type=int, default=17)
     parser.add_argument("--max_tokens", type=int, default=512)
     parser.add_argument("--batch_size", type=int, default=64)

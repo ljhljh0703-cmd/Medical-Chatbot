@@ -1,0 +1,405 @@
+{
+  "8-디하이드록시아데닌": [
+    "8-dha"
+  ],
+  "ace 억제제": [
+    "ace inhibitor",
+    "ace inhibitors",
+    "angiotensin converting enzyme inhibitor"
+  ],
+  "갑상선 기능 항진증": [
+    "hyperthyroidism"
+  ],
+  "갑상선자극호르몬": [
+    "tsh"
+  ],
+  "건선": [
+    "psoriasis"
+  ],
+  "결핵 피부 반응 검사": [
+    "tst"
+  ],
+  "경피적 관상동맥 중재술": [
+    "즉각적인 pci"
+  ],
+  "고유량 비강 캐뉼라": [
+    "hfnc",
+    "high-flow nasal cannula"
+  ],
+  "과 당뇨병성 근육괴사": [
+    "diabetic myonecrosis"
+  ],
+  "나프록센": [
+    "nsaid"
+  ],
+  "낭성 에키노코쿠스증": [
+    "cystic echinococcosis"
+  ],
+  "내시경 역행 췌담관 조영술": [
+    "ercp"
+  ],
+  "내시경적 역행성 담췌관 조영술": [
+    "ercp"
+  ],
+  "내시경적 역행성 담췌관조영술": [
+    "ercp"
+  ],
+  "내시경적 풍선 괄약근 확장술": [
+    "endoscopic balloon sphincter dilation"
+  ],
+  "노출 전 예방요법": [
+    "prep"
+  ],
+  "녹농균": [
+    "pseudomonas aeruginosa"
+  ],
+  "다제내성결핵": [
+    "mdr-tb"
+  ],
+  "단백질-에너지 영양실조": [
+    "protein-energy malnutrition"
+  ],
+  "당뇨병성 망막병증": [
+    "diabetic retinopathy"
+  ],
+  "대장내시경": [
+    "colonoscopy"
+  ],
+  "덱사메타손": [
+    "dexamethasone"
+  ],
+  "도모산": [
+    "domoic acid"
+  ],
+  "독시사이클린": [
+    "doxycycline"
+  ],
+  "동맥혈 산소 분압": [
+    "pao2"
+  ],
+  "동맥혈가스분석": [
+    "arterial blood gas analysis"
+  ],
+  "또는 인터페론 감마 방출 검사": [
+    "igra"
+  ],
+  "레보티록신": [
+    "levothyroxine"
+  ],
+  "렌바티닙+펨브롤리주맙": [
+    "len+pem"
+  ],
+  "리팜핀 내성은 다제내성 결핵": [
+    "mdr-tb"
+  ],
+  "마이코페놀레이트 모페틸": [
+    "mmf"
+  ],
+  "메토트렉세이트": [
+    "methotrexate"
+  ],
+  "메트포르민": [
+    "metformin"
+  ],
+  "및 망상형 패턴": [
+    "reticular pattern"
+  ],
+  "발목 상완 지수": [
+    "엽산 보충은 abi"
+  ],
+  "방실결절 회귀성 빈맥": [
+    "av nodal reentrant tachycardia",
+    "avnrt"
+  ],
+  "벌집모양의 폐 변화": [
+    "honeycombing"
+  ],
+  "복부 ct": [
+    "computed tomography"
+  ],
+  "복부 전산화단층촬영": [
+    "ct"
+  ],
+  "비만": [
+    "높은 bmi"
+  ],
+  "비침습적 양압 환기": [
+    "nippv",
+    "niv",
+    "noninvasive positive pressure ventilation"
+  ],
+  "사중 수막구균 다당류-단백질 접합 백신": [
+    "mcv4"
+  ],
+  "살메테롤": [
+    "salmeterol"
+  ],
+  "삽입형 제세동기": [
+    "icd"
+  ],
+  "상염색체 우성 다낭성 신장병": [
+    "adpkd"
+  ],
+  "생활 습관 개선": [
+    "lifestyle changes",
+    "lifestyle intervention",
+    "lifestyle modification"
+  ],
+  "세균성 인후염을 확인하기 위한 신속항원검사": [
+    "rapid antigen test"
+  ],
+  "세침 흡인 생검": [
+    "fnab"
+  ],
+  "스피로놀락톤": [
+    "spironolactone"
+  ],
+  "시겔라": [
+    "shigella"
+  ],
+  "신장암": [
+    "kidney cancer"
+  ],
+  "심낭 천자": [
+    "pericardiocentesis"
+  ],
+  "심장 초음파": [
+    "echo",
+    "echocardiography"
+  ],
+  "심전도": [
+    "ecg"
+  ],
+  "아급성 갑상선염": [
+    "subacute thyroiditis"
+  ],
+  "아르가트로반": [
+    "argatroban"
+  ],
+  "아스피린": [
+    "aspirin"
+  ],
+  "아토바쿠온-프로구안질": [
+    "atovaquone-proguanil"
+  ],
+  "알테플라제": [
+    "tpa"
+  ],
+  "약물의 반감기가 증가하고": [
+    "cmax"
+  ],
+  "양자 펌프 억제제": [
+    "proton pump inhibitor"
+  ],
+  "엑스트라코포레알 광선치료": [
+    "ecp",
+    "extracorporeal photopheresis"
+  ],
+  "오피오이드": [
+    "opioids"
+  ],
+  "위식도 역류 질환": [
+    "gastroesophageal reflux disease",
+    "gerd"
+  ],
+  "유전자 검사": [
+    "scnn1b",
+    "scnn1g"
+  ],
+  "응급 경피적 관상동맥 중재술": [
+    "pci"
+  ],
+  "응급 관상동맥 중재술": [
+    "pci"
+  ],
+  "이동성 홍반": [
+    "erythema migrans"
+  ],
+  "이식형 심장 제세동기": [
+    "icd"
+  ],
+  "인덜런트 비만세포증": [
+    "indolent systemic mastocytosis"
+  ],
+  "인터루킨-6": [
+    "il-6"
+  ],
+  "자가 팽창 금속 스텐트": [
+    "sems"
+  ],
+  "자가면역 질환인 전신홍반루푸스": [
+    "sle"
+  ],
+  "장기 작용 베타2-작용제": [
+    "laba"
+  ],
+  "저분자량 헤파린": [
+    "lmwh"
+  ],
+  "저선량 흉부 ct": [
+    "ldct",
+    "low-dose chest ct"
+  ],
+  "저용량 메살라민": [
+    "1~2 g"
+  ],
+  "저일회호흡량": [
+    "low tidal volume"
+  ],
+  "전극 도자 절제술": [
+    "radiofrequency catheter ablation"
+  ],
+  "전신 홍반성 루푸스": [
+    "sle",
+    "systemic lupus erythematosus"
+  ],
+  "전신성 고혈압": [
+    "systemic hypertension"
+  ],
+  "전신홍반루푸스": [
+    "sle",
+    "systemic lupus erythematosus"
+  ],
+  "정맥 면역글로불린": [
+    "ivig"
+  ],
+  "제2형 당뇨병": [
+    "type 2 diabetes"
+  ],
+  "조혈모세포 이식": [
+    "allo-hct"
+  ],
+  "중추신경계": [
+    "cns"
+  ],
+  "지역사회획득 감염": [
+    "ca-mrsa"
+  ],
+  "직접 관찰 하에 약물 복용": [
+    "directly observed therapy",
+    "dot"
+  ],
+  "직접 작용 항바이러스제": [
+    "daa"
+  ],
+  "직접작용항바이러스제": [
+    "daa"
+  ],
+  "체외 광화학 요법": [
+    "ecp",
+    "extracorporeal photopheresis"
+  ],
+  "체외막산소화장치": [
+    "ecmo"
+  ],
+  "최대 혈중 농도": [
+    "cmax"
+  ],
+  "추정 사구체 여과율": [
+    "egfr"
+  ],
+  "췌장 효소 대체 요법": [
+    "pert"
+  ],
+  "췌장십이지장절제술": [
+    "whipple 수술"
+  ],
+  "치료용 용량의 저분자량 헤파린": [
+    "lmwh"
+  ],
+  "카보잔티닙": [
+    "cabozantinib"
+  ],
+  "카페시타빈": [
+    "capecitabine"
+  ],
+  "칼슘 채널 차단제": [
+    "dihydropyridine 계열"
+  ],
+  "코발라민": [
+    "비타민 b12"
+  ],
+  "클린다마이신": [
+    "clindamycin"
+  ],
+  "태극권": [
+    "tai chi"
+  ],
+  "테를리프레신": [
+    "terlipressin"
+  ],
+  "트로포닌": [
+    "troponin"
+  ],
+  "파상풍 면역글로불린": [
+    "tig"
+  ],
+  "패혈증": [
+    "sepsis"
+  ],
+  "폐 확산 용량 검사": [
+    "dlco"
+  ],
+  "폐기능": [
+    "fev1"
+  ],
+  "폐정맥폐쇄질환": [
+    "pvod"
+  ],
+  "표준 용량의 프로톤 펌프 억제제": [
+    "ppi"
+  ],
+  "푸로세미드": [
+    "furosemide"
+  ],
+  "프로칼시토닌": [
+    "pct"
+  ],
+  "프로톤 펌프 억제제": [
+    "ppi",
+    "proton pump inhibitor"
+  ],
+  "플루코나졸": [
+    "fluconazole"
+  ],
+  "필라델피아 염색체": [
+    "bcr-abl"
+  ],
+  "항말라리아제": [
+    "antimalarial",
+    "hydroxychloroquine"
+  ],
+  "항이뇨호르몬 부적절 분비 증후군": [
+    "siadh",
+    "syndrome of inappropriate antidiuretic hormone"
+  ],
+  "항콜린성 인지 부담": [
+    "acb"
+  ],
+  "항혈관생성제는 혈관 내피세포 성장 인자": [
+    "vegf"
+  ],
+  "혈액응고검사": [
+    "aptt",
+    "pt"
+  ],
+  "혈청학적 검사": [
+    "ifa"
+  ],
+  "호기말 이산화탄소분압": [
+    "etco2"
+  ],
+  "호산구": [
+    "eosinophil"
+  ],
+  "활성화된 단백질 c 저항성": [
+    "apcr"
+  ],
+  "흉부 x선 촬영": [
+    "chest x-ray"
+  ],
+  "흡입형 기관지확장제": [
+    "bronchodilator",
+    "inhaled bronchodilator"
+  ]
+}
