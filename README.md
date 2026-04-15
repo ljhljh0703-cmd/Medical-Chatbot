@@ -1,5 +1,5 @@
 # 내과 의료 챗봇 (Medical Chatbot)
-check
+
 > Qwen2.5-7B-Instruct 기반 RAG + LoRA 내과 전문 챗봇
 
 ---

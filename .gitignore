@@ -1,112 +1,46 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
+*.pyo
+*.pyd
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+dist/
+build/
 
-# Virtual environments
+# 환경 변수
+.env
+.env.*
+
+# 가상환경
+.venv/
 venv/
-ENV/
 env/
-.venv
-pip-log.txt
-pip-delete-this-directory.txt
+
+# 모델 가중치 (용량이 크므로 별도 관리)
+/models/
+*.bin
+*.safetensors
+*.pt
+*.ckpt
+
+# 벡터 DB
+# chroma_db/
+
+# 데이터 (원본 데이터는 별도 보관)
+data/processed/
+
+# Jupyter
+.ipynb_checkpoints/
+# *.ipynb
+
+# macOS
+.DS_Store
 
 # IDE
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
-.DS_Store
-.project
-.pydevproject
-.settings/
-*.sublime-project
-*.sublime-workspace
 
-# Testing
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-*.ipynb
-
-# pyenv
-.python-version
-
-# Environment variables (보안상 중요)
-.env
-.env.local
-.env.*.local
-
-# 데이터 파일 (대용량)
-data/raw/*.json
-data/raw/*.CSV
-data/raw/*.csv
-data/processed/
-!data/raw/.gitkeep
-!data/processed/.gitkeep
-
-# 벡터 DB (재생성 가능)
-chroma_db/
-!chroma_db/.gitkeep
-
-# 모델 파일 (자동 다운로드)
-models/
-*.bin
-*.pt
-*.pth
-*.ckpt
-
-# LoRA 어댑터 (개인 학습 결과)
-adapters/
-!adapters/.gitkeep
-
-# 로그 파일
-logs/
+# 로그
 *.log
-!logs/.gitkeep
-
-# 임시 파일
-tmp/
-temp/
-*.tmp
-*.bak
-*.swp
-
-# OS
-.DS_Store
-Thumbs.db
-*.desktop
-
-# 프로젝트 특화
-# (필요시 추가)
+logs/

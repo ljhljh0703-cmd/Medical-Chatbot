@@ -58,7 +58,7 @@ class Evaluator:
         if not self._test_data:
             self.load_test_data()
 
-        predictions, references, questions = [], [], []
+        predictions, references, questions, q_types = [], [], [], []
         detail_rows: list[dict] = []
         total = len(self._test_data)
 
@@ -73,6 +73,7 @@ class Evaluator:
             predictions.append(pred)
             references.append(qa.answer)
             questions.append(qa.question)
+            q_types.append(getattr(qa, "q_type", None))
 
             # 개별 건 상세 기록
             detail_rows.append({
@@ -88,7 +89,7 @@ class Evaluator:
                 logger.info(f"[Evaluator] mode={mode} 진행: {idx}/{total}")
 
         # 메트릭 산출
-        em_scores = [exact_match(p, r) for p, r in zip(predictions, references)]
+        em_scores = [exact_match(p, r, qt) for p, r, qt in zip(predictions, references, q_types)]
         rl_scores = [rouge_l(p, r) for p, r in zip(predictions, references)]
         bs_scores = bert_score(predictions, references)
         lj_scores = [
