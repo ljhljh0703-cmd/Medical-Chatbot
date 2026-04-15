@@ -17,13 +17,13 @@ class BM25Retriever:
     BM25 검색기.
 
     사용 예:
-        retriever = BM25Retriever(collection_name="medical_inner")
+        retriever = BM25Retriever(collection_name="medical_knowledge")
         results = retriever.retrieve("고혈압 치료", top_k=5)
     """
 
     def __init__(
         self,
-        collection_name: str = "medical_inner",
+        collection_name: str = "medical_knowledge",
         db_path: str = "./chroma_db",
     ) -> None:
         self.collection_name = collection_name
