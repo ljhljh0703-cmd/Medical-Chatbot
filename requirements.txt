@@ -21,6 +21,10 @@ torch>=2.2.0               # GPU 추론
 chromadb
 sentence-transformers      # 임베딩 모델 (로컬 fallback)
 
+# ── BM25 / Tokenize ──────────────────────────────────────
+kiwipiepy
+rank-bm25>=0.2.2           # BM25 희소 검색
+
 # ── 데이터셋 ─────────────────────────────────────────────
 datasets>=2.18.0           # HuggingFace datasets (학습 시)
 
