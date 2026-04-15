@@ -22,11 +22,11 @@ class Settings(BaseSettings):
     temperature: float = 0.7
 
     # ── 임베딩 ──────────────────────────────────────────
-    embedding_model: str = "openai:text-embedding-3-small"
+    embedding_model: str = "jhgan/ko-sroberta-multitask"
 
     # ── ChromaDB ─────────────────────────────────────────
     chroma_db_path: str = "./chroma_db"
-    chroma_collection: str = "medical_inner"
+    chroma_collection: str = "medical_knowledge"
 
     # ── 검색 ───────────────────────────────────────────
     top_k: int = 5

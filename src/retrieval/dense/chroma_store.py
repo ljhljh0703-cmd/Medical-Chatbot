@@ -17,7 +17,7 @@ class ChromaStore:
 
     def __init__(
         self,
-        collection_name: str = "medical_inner",
+        collection_name: str = "medical_knowledge",
         persist_directory: str = "./chroma_db",
     ):
         self.collection_name = collection_name
