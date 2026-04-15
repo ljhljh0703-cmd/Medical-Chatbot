@@ -37,7 +37,7 @@ class ChromaStore:
             self._client = chromadb.PersistentClient(path=self.persist_directory)
             self._collection = self._client.get_or_create_collection(
                 name=self.collection_name,
-                metadata={"hnsw:space": "cosine"},  # cosine ?醫롪텢??????
+                metadata={"hnsw:space": "cosine"},  # cosine 유사도 사용
             )
             logger.info(f"[ChromaStore] 컬렉션 '{self.collection_name}' 연결 완료")
         except ImportError:
@@ -97,4 +97,4 @@ class ChromaStore:
         if self._client:
             self._client.delete_collection(self.collection_name)
             self._collection = None
-            logger.warning(f"[ChromaStore] Collection '{self.collection_name}' deleted")
+            logger.warning(f"[ChromaStore] 컬렉션 '{self.collection_name}' 삭제됨")
