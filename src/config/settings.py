@@ -1,41 +1,64 @@
 """
-전역 설정 모듈.
-
-환경 변수 또는 .env 파일에서 로드.
+Global configuration module.
+Loads environment variables from `.env`.
 """
 
-from pydantic_settings import BaseSettings
+from pathlib import Path
 from typing import Literal, Optional
+
+from pydantic_settings import BaseSettings
+try:
+    from pydantic import field_validator as _field_validator
+
+    def before_validator(*fields):
+        return _field_validator(*fields, mode="before")
+except Exception:  # pragma: no cover - pydantic v1 fallback
+    from pydantic import validator as _validator
+
+    def before_validator(*fields):
+        return _validator(*fields, pre=True)
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_CHROMA_DB_PATH = (PROJECT_ROOT / "chroma_db").resolve()
 
 
 class Settings(BaseSettings):
-    # ── API 키 ───────────────────────────────────────────
     openai_api_key: Optional[str] = None
 
-    # ── 모델 설정 ─────────────────────────────────────────
-    model_mode: Literal["A", "B", "C"] = "C"          # A=LLM only, B=LLM+RAG, C=LLM+RAG+LoRA
-    model_backend: Literal["openai", "qwen"] = "qwen"  # 추론 백엔드
-    model_path: str = "Qwen/Qwen2.5-7B-Instruct"       # 베이스 모델 (HF ID 또는 로컬 경로)
-    lora_adapter_path: Optional[str] = None              # LoRA 어댑터 경로 (모드 C 전용)
-    openai_model: str = "gpt-4o-mini"                   # OpenAI 백엔드 사용 시 모델명
+    model_mode: Literal["A", "B", "C"] = "C"
+    model_backend: Literal["openai", "qwen"] = "qwen"
+    model_path: str = "Qwen/Qwen2.5-7B-Instruct"
+    lora_adapter_path: Optional[str] = None
+    openai_model: str = "gpt-4o-mini"
     max_new_tokens: int = 512
     temperature: float = 0.7
 
-    # ── 임베딩 ──────────────────────────────────────────
     embedding_model: str = "jhgan/ko-sroberta-multitask"
 
-    # ── ChromaDB ─────────────────────────────────────────
-    chroma_db_path: str = "./chroma_db"
+    # Keep this path absolute regardless of current working directory.
+    chroma_db_path: str = str(DEFAULT_CHROMA_DB_PATH)
     chroma_collection: str = "medical_knowledge"
 
-    # ── 검색 ───────────────────────────────────────────
     top_k: int = 5
-    use_hybrid: bool = False          # True = BM25+Dense 혼합 검색
-    hybrid_alpha: float = 0.7        # Dense 가중치 (1-alpha = BM25 가중치)
+    use_hybrid: bool = False
+    hybrid_alpha: float = 0.7
 
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+
+    @before_validator("chroma_db_path")
+    @classmethod
+    def _normalize_chroma_db_path(cls, value: Optional[str]) -> str:
+        """Normalize relative Chroma path to project-root-based absolute path."""
+        if value is None or not str(value).strip():
+            return str(DEFAULT_CHROMA_DB_PATH)
+
+        path = Path(str(value)).expanduser()
+        if not path.is_absolute():
+            path = PROJECT_ROOT / path
+        return str(path.resolve())
 
 
 settings = Settings()
