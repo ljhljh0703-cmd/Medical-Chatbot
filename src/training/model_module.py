@@ -11,7 +11,7 @@
 
 import torch
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig
-from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training, PeftModel
 
 class MedicalModelModule:
     """
@@ -107,3 +107,22 @@ class MedicalModelModule:
         
         # 설정한 LoRA(메모지)를 실제 베이스 모델(뇌)에 부착하여 최종 학습용 모델을 반환합니다.
         return get_peft_model(model, peft_config)
+
+    @staticmethod
+    def load_existing_lora_for_training(model, checkpoint_path):
+        """
+        [기능] 
+        백지상태의 LoRA가 아닌, 이미 특정 스테이지(예: Stage 1)에서 
+        학습이 완료된 LoRA 체크포인트를 불러와서 '이어서 학습'할 수 있도록 장착합니다.
+        
+        [핵심 파라미터]
+        is_trainable=True : 이 옵션이 없으면 가중치가 읽기 전용(Read-only)으로 고정되어 
+        Loss가 떨어지지 않고 에러가 발생합니다.
+        """
+        print(f"🔄 [Load] 기존 학습된 LoRA 가중치를 불러옵니다: {checkpoint_path}")
+        model = PeftModel.from_pretrained(
+            model, 
+            checkpoint_path, 
+            is_trainable=True  # 이어서 파인튜닝을 하기 위한 핵심 마스터키!
+        )
+        return model
