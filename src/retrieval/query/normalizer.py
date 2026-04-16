@@ -48,6 +48,23 @@ class QueryNormalizer:
         # 향후 추가 시 여기에 등록
     }
 
+    # 비시각적/주관적 증상 패턴 → 표준 의학 용어 매핑 (핵심 언어자원)
+    SYMPTOM_PATTERNS: dict[str, str] = {
+        # 통증 양상 (찌르는 듯한)
+        r"(콕콕|바늘로|찌르듯이|찌르는).*아프[다고파]": "천자통(찌르는 통증)",
+        
+        # 소화기 주관적 증상 (쓰린 느낌)
+        r"(싸하[다고]|쓰리[다고]|타는 듯한|신물이)": "위산 역류 및 작열감",
+        
+        # 흉부/호흡기 주관적 증상
+        r"(가슴이|명치가).*(답답|돌덩이|짓누르는|뻐근)": "흉부 압박감",
+        r"(숨이|숨쉬기가).*(가쁘|차|헐떡)": "호흡 곤란",
+        
+        # 전신 증상
+        r"(몸이|온몸이).*(으슬으슬|덜덜|추워)": "오한",
+        r"(핑.*돌|세상이.*돌|어질어질)": "현훈(어지럼증)"
+    }
+
     def normalize(self, query: str) -> str:
         """쿼리 문자열을 정규화하여 반환."""
         if not query or not query.strip():
@@ -58,11 +75,15 @@ class QueryNormalizer:
         # 1. 중복 공백 정제
         text = re.sub(r" {2,}", " ", text)
 
-        # 2. 의료 약어 확장 (대소문자 무시)
+        # 2. 비시각적 증상 패턴 치환 (먼저 실행하여 문맥을 표준어로 변경)
+        for pattern, standard_symptom in self.SYMPTOM_PATTERNS.items():
+            text = re.sub(pattern, standard_symptom, text)
+
+        # 3. 의료 약어 확장
         for pattern, expansion in self.ABBREVIATIONS.items():
             text = re.sub(pattern, expansion, text, flags=re.IGNORECASE)
 
-        # 3. 오타 보정
+        # 4. 오타 보정
         for typo, correct in self.TYPO_MAP.items():
             text = text.replace(typo, correct)
 
