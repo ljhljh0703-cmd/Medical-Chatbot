@@ -1,0 +1,42 @@
+# ─────────────────────────────────────────────────────────────
+# 서빙 환경 설정
+# .env 파일과 병행 사용 (런타임 값은 .env / settings.py 우선)
+# ─────────────────────────────────────────────────────────────
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+  reload: false
+  workers: 1
+
+streamlit:
+  port: 8501
+
+model:
+  mode: "C"                                   # A | B | C
+  backend: "qwen"                             # openai | qwen
+  path: "Qwen/Qwen2.5-7B-Instruct"
+  lora_adapter_path: null                     # 모드 C 시 어댑터 경로
+  openai_model: "gpt-4o-mini"
+  max_new_tokens: 512
+  temperature: 0.7
+
+embedding:
+  model: "openai:text-embedding-3-small"      # openai:... | local:...
+
+retrieval:
+  top_k: 5
+  use_hybrid: false                           # true = BM25+Dense 혼합
+  hybrid_alpha: 0.7                           # Dense 가중치 (1-alpha = BM25)
+
+chroma:
+  db_path: "./chroma_db"
+  collection: "medical_knowledge"
+
+safety:
+  red_flag_enabled: true
+  disclaimer_enabled: true
+
+logging:
+  level: "INFO"
+  log_dir: "logs/app"

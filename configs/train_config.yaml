@@ -1,0 +1,46 @@
+# ─────────────────────────────────────────────────────────────
+# Qwen2.5-7B LoRA Fine-Tuning 하이퍼파라미터 설정
+# 사용 위치: src/training/main_train.py
+# ─────────────────────────────────────────────────────────────
+
+#모델 명 및 출력 설정
+model:
+  id: "Qwen/Qwen2.5-7B-Instruct"
+  output_dir: "src/training/results"
+  final_dir: "src/training/lora_final"
+
+#4-bit 양자화 설정
+quantization:
+  enabled: true
+  load_in_4bit: true
+  bnb_4bit_compute_dtype: "float16"
+  bnb_4bit_use_double_quant: true
+  bnb_4bit_quant_type: "nf4"
+
+data:
+  stage1: "data/processed/merged_단답형.jsonl"
+  stage2: "data/processed/merged_서술형.jsonl"
+  stage3: "data/processed/merged_객관식.jsonl"
+
+
+training:
+
+  #8번 학습 후 가중치 업데이트
+  gradient_accumulation_steps: 8
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  
+
+  #기본 LoRA 설정, 16차원, 32% 반영, 5%로 무작위 끄기
+  lora_r: 16
+  #반영 배율을 2배로 설정, 32/16=2
+  lora_alpha: 32
+  lora_dropout: 0.05
+  #Transformer 모든 부분에 적용
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+  
+  #각 stage 별 학습 파라미터, L4 환경용
+  stages:
+    stage1: {max_len: 640,  batch: 4, lr: 0.0002, epochs: 2}
+    stage2: {max_len: 896,  batch: 2, lr: 0.0001, epochs: 2}
+    stage3: {max_len: 1024, batch: 2, lr: 0.00005, epochs: 2}
