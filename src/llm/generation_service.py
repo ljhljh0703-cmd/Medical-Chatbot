@@ -15,6 +15,8 @@ LLM 답변 생성 서비스.
 
 """
 from typing import Optional
+import json
+import re
 from config.prompts import SYSTEM_PROMPT, RAG_CONTEXT_TEMPLATE
 from config.settings import settings
 from observability.logger import logger
@@ -150,3 +152,66 @@ class GenerationService:
             max_new_tokens=settings.max_new_tokens,
             temperature=settings.temperature,
         )
+
+    # ── 문진 요약 리포트 생성 ────────────────────────────────────────────────
+
+    def generate_report(self, chat_history: list[dict]) -> dict:
+        """
+        대화 기록을 분석해 의사용 문진 요약 리포트를 JSON dict로 반환.
+
+        chat_history: _tab_chat()에서 관리하는 st.session_state["chat_history"]
+        """
+        from config.prompts import REPORT_SYSTEM_PROMPT
+
+        # 대화 기록 직렬화 (인사 메시지 제외)
+        lines = []
+        for entry in chat_history:
+            role = entry.get("role", "")
+            if role == "bot_greeting":
+                continue
+            if role == "user":
+                lines.append(f"환자: {entry.get('query', '')}")
+                lines.append(f"챗봇: {entry.get('chatbot_answer', '')}")
+
+        if not lines:
+            return {
+                "suspected_department": "분석 불가",
+                "chief_complaint": ["대화 기록 없음"],
+                "onset_and_severity": "언급 없음",
+                "additional_notes": "문진 기록이 충분하지 않습니다.",
+            }
+
+        conversation_text = "\n".join(lines)
+        prompt = f"다음 대화 기록을 분석하여 문진 요약 리포트를 생성하세요:\n\n{conversation_text}"
+
+        try:
+            if settings.model_backend == "openai":
+                client = self._get_openai()
+                raw = client.request(
+                    prompt=prompt,
+                    system_prompt=REPORT_SYSTEM_PROMPT,
+                    max_tokens=512,
+                    temperature=0.3,
+                )
+            else:
+                client = self._get_qwen_base()
+                raw = client.request(
+                    prompt=prompt,
+                    system_prompt=REPORT_SYSTEM_PROMPT,
+                    max_new_tokens=512,
+                    temperature=0.3,
+                )
+
+            # ```json ... ``` 블록 추출 후 파싱
+            json_match = re.search(r"```json\s*(.*?)\s*```", raw, re.DOTALL)
+            json_str = json_match.group(1) if json_match else raw
+            return json.loads(json_str)
+
+        except Exception as exc:
+            logger.warning(f"[GenerationService] 리포트 생성 실패: {exc}")
+            return {
+                "suspected_department": "자동 분석 실패",
+                "chief_complaint": ["분석 중 오류가 발생했습니다"],
+                "onset_and_severity": "언급 없음",
+                "additional_notes": f"오류: {exc}",
+            }

@@ -50,6 +50,22 @@ class ChatService:
         # 1. Safety: Red Flag 검사
         red_flag = self.safety.check_query(query)
 
+        # 1-a. Bypass: 즉각 응급 응답 반환 (RAG/LLM 파이프라인 완전 생략)
+        if red_flag.bypass:
+            logger.warning(f"[ChatService] 🚨 RED FLAG BYPASS | query='{query[:50]}'")
+            return ChatResult(
+                query=query,
+                chatbot_answer=(
+                    "🚨 응급 상황이 감지되었습니다.\n\n"
+                    "즉시 **119에 연락**하거나 **가장 가까운 응급실로 이동**하십시오."
+                ),
+                ground_truth=ground_truth,
+                retrieved_sources=[],
+                red_flag_triggered=True,
+                mode=active_mode,
+                top_k=settings.top_k,
+            )
+
         # 2. Retrieval: 모드 B/C 일 때만 RAG 검색
         retrieved_chunks: list[RetrievedChunk] = []
         context: Optional[str] = None

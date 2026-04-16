@@ -33,7 +33,7 @@ IMG_PROFILE = os.path.join(_HERE, "chatbot 200x200.png")
 GENDER_OPTIONS = ["남성", "여성"]
 AGE_OPTIONS = ["10대", "20대", "30대", "40대", "50대 이상"]
 
-GREETING_MSG = "안녕하세요! 알려줄고양입니다 🩺\n환자분의 상세한 증상을 편하게 말씀해 주세요."
+GREETING_MSG = "어디가 언제부터 어떻게 아프냥? 구체적으로 알려주면 좋다냥."
 
 
 # ─── 페이지 기본 설정 ────────────────────────────────────────────────────────
@@ -173,6 +173,69 @@ st.markdown(
     [data-testid="stMain"] h1 {
         display: none !important;
     }
+
+    /* ── 리포트 카드 ── */
+    .report-card {
+        background: white;
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border-left: 4px solid #4B8BF5;
+    }
+    .report-section-title {
+        font-size: 0.8em;
+        font-weight: 700;
+        color: #4B8BF5;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+    .report-tag {
+        display: block;
+        padding: 3px 0;
+        color: #333;
+        font-size: 0.93em;
+    }
+
+    /* ── 동의 화면 ── */
+    .disclaimer-card {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 450px;
+        margin: 60px auto;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        border: 2px solid #E0E7FF;
+    }
+    .disclaimer-header {
+        text-align: center;
+        margin-bottom: 20px;
+        font-size: 1.3em;
+        font-weight: 700;
+        color: #1F2937;
+    }
+    .disclaimer-section {
+        background: #F0F4FF;
+        border-left: 4px solid #4B8BF5;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+        border-radius: 6px;
+        line-height: 1.6;
+        font-size: 0.95em;
+        color: #333;
+    }
+    .disclaimer-alert {
+        background: #FEE2E2;
+        border: 1px solid #FECACA;
+        border-left: 4px solid #EF4444;
+        padding: 12px 14px;
+        margin-bottom: 16px;
+        border-radius: 6px;
+        line-height: 1.6;
+        font-size: 0.9em;
+        color: #991B1B;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -182,7 +245,8 @@ st.markdown(
 # ─── 세션 상태 초기화 ─────────────────────────────────────────────────────────
 def _init_session_state() -> None:
     defaults = {
-        "step": 0,                   # 0=프로필, 1=채팅
+        "disclaimer_agreed": False,  # 사전 동의 여부
+        "step": 0,                   # 0=프로필, 1=채팅, 2=리포트
         "patient_gender": None,      # "남성" | "여성"
         "patient_age_group": None,   # "10대" ~ "50대 이상"
         "chat_history": [],          # list[dict]
@@ -190,6 +254,8 @@ def _init_session_state() -> None:
         "mode": "B",                 # A / B / C
         "top_k": 5,
         "eval_results": None,        # 평가 JSON 로드 결과
+        "show_emergency_popup": False,  # 응급 팝업 표시 여부
+        "report_data": None,            # 문진 요약 리포트 dict
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -396,7 +462,7 @@ def _profile_setup() -> None:
 def _render_red_flag_banner(keywords: list[str] | None = None) -> None:
     kw_str = ", ".join(keywords) if keywords else ""
     banner = (
-        "🚨 **긴급 상황이 감지되었습니다냥.**  \n"
+        "🚨 **긴급 상황이 감지되었다냥.**  \n"
         "즉시 119에 신고하거나 가까운 응급실을 방문하라냥.  \n"
     )
     if kw_str:
@@ -492,6 +558,10 @@ def _build_query_with_context(raw_query: str) -> str:
 def _tab_chat() -> None:
     """채팅 메인 화면."""
 
+    # 응급 팝업 (bypass red flag 시 즉시 표시)
+    if st.session_state.get("show_emergency_popup"):
+        _emergency_popup()
+
     # 첫 진입 시 인사 메시지 삽입
     if not st.session_state["greeting_shown"]:
         st.session_state["chat_history"].insert(0, {
@@ -514,7 +584,7 @@ def _tab_chat() -> None:
     # 입력창
     with st.form(key="chat_form", clear_on_submit=True):
         query = st.text_area(
-            "증상을 입력하라냥",
+            "어디가 언제부터 어떻게 아프냥? 구체적으로 알려주면 좋다냥.",
             placeholder="예: 3일 전부터 속이 쓰리고 식후에 복통이 있어요.",
             height=100,
             label_visibility="collapsed",
@@ -524,7 +594,7 @@ def _tab_chat() -> None:
     if submitted and query.strip():
         enriched_query = _build_query_with_context(query.strip())
 
-        with st.spinner("알려줄고양이 답변을 준비하고 있습니다…"):
+        with st.spinner("알려줄고양이 답변을 준비하고 있다냥…"):
             if svc is None:
                 result_dict = _demo_response(query.strip())
             else:
@@ -556,7 +626,32 @@ def _tab_chat() -> None:
         if len(st.session_state["chat_history"]) > MAX_HISTORY:
             st.session_state["chat_history"].pop(1)  # 인사 메시지(0) 유지
 
+        # Red Flag bypass 감지 → 팝업 트리거
+        if result_dict.get("red_flag_triggered"):
+            st.session_state["show_emergency_popup"] = True
+
         st.rerun()
+
+    # 문진 종료 버튼 (대화 기록이 있을 때만 표시)
+    has_user_msgs = any(
+        e.get("role") == "user" for e in st.session_state["chat_history"]
+    )
+    if has_user_msgs:
+        st.write("")
+        if st.button("🩺 문진 종료 및 리포트 생성", use_container_width=True):
+            with st.spinner("리포트를 분석하고 있습니다…"):
+                if svc is not None:
+                    try:
+                        report = svc.generation.generate_report(
+                            st.session_state["chat_history"]
+                        )
+                    except Exception:
+                        report = _demo_report()
+                else:
+                    report = _demo_report()
+            st.session_state["report_data"] = report
+            st.session_state["step"] = 2
+            st.rerun()
 
 
 def _demo_response(query: str) -> dict:
@@ -573,6 +668,216 @@ def _demo_response(query: str) -> dict:
         "mode": st.session_state["mode"],
         "top_k": st.session_state["top_k"],
     }
+
+
+def _demo_report() -> dict:
+    """서비스 없을 때 보여주는 데모 문진 리포트."""
+    return {
+        "suspected_department": "내과 (소화기내과) — 데모 모드",
+        "chief_complaint": ["명치 통증", "식후 악화", "위산 역류 (예시)"],
+        "onset_and_severity": "3일 전부터 시작, 중등도 강도 (예시)",
+        "additional_notes": "⚠️ 데모 모드: 실제 LLM이 연결되지 않아 가상 데이터입니다.",
+    }
+
+
+# ─── 사전 동의 화면 (Disclaimer) ────────────────────────────────────────────
+def _disclaimer_screen() -> None:
+    """앱 진입 전 면책 및 동의 화면."""
+    import os, base64
+    img_path = os.path.join(os.path.dirname(__file__), "Chatbot 64x64.png")
+    with open(img_path, "rb") as f:
+        img_b64 = base64.b64encode(f.read()).decode()
+
+    st.markdown(
+        f'<div class="disclaimer-card">'
+        f'<div style="text-align:center; padding:8px 0;">'
+        f'<img src="data:image/png;base64,{img_b64}" width="64" style="margin-bottom:10px;"/>'
+        f'<div style="font-size:1.1em; font-weight:bold; color:#333;">'
+        f'시작하기 전 이것만은 꼭 약속해달라냥!'
+        f'</div>'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        '<div class="disclaimer-section">'
+        '이 서비스는 사용자의 증상을 미리 정리하고 올바른 병원을 안내하기 위한 <strong>사전 문진 도우미</strong>다냥.'
+        '<br>아무리 내가 똑똑해도 <strong style="color:#E53E3E;">진짜 의사 선생님의 진찰과 의학적 진단을 절대절대 대체할 수 없다냥!</strong>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        '<div class="disclaimer-alert">'
+        '<strong>⚠️ 잠깐! 응급 상황이냥?</strong><br>'
+        '피를 토하거나, 숨쉬기 힘들거나, 참을 수 없이 아프다면 나랑 수다 떨 시간이 없다냥! '
+        '<strong>당장 119를 부르거나 가장 가까운 응급실로 뛰어가라냥!</strong>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    # 체크박스
+    col_check, col_label = st.columns([0.8, 11])
+    with col_check:
+        agreed = st.checkbox(
+            "동의",
+            value=st.session_state.get("disclaimer_agreed", False),
+            label_visibility="collapsed",
+        )
+    with col_label:
+        st.markdown(
+            "<span style='font-size:0.95em; color:#333;'>"
+            "이 서비스가 의사의 진료를 대체할 수 없음을 이해했으며, 이에 동의한다냥."
+            "</span>",
+            unsafe_allow_html=True,
+        )
+
+    if agreed != st.session_state.get("disclaimer_agreed", False):
+        st.session_state["disclaimer_agreed"] = agreed
+        st.rerun()
+
+    st.write("")
+
+    # 동의 버튼
+    if st.button(
+        "동의하고 문진 시작하기 🐾" if agreed else "먼저 동의해달라냥",
+        use_container_width=True,
+        type="primary" if agreed else "secondary",
+        disabled=not agreed,
+    ):
+        st.session_state["disclaimer_agreed"] = True
+        st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ─── 응급 팝업 ────────────────────────────────────────────────────────────────
+@st.dialog("🚨 응급 상황 감지", width="small")
+def _emergency_popup() -> None:
+    """Red Flag bypass 시 즉시 노출하는 응급 모달 팝업."""
+    st.markdown(
+        "<div style='text-align:center; padding:12px 0;'>"
+        "<div style='font-size:3.5em;'>🚨</div>"
+        "<div style='font-size:1.15em; font-weight:bold; color:#CC0000; margin:12px 0;'>"
+        "응급 상황이 감지되었습니다</div>"
+        "<div style='font-size:0.95em; color:#333; line-height:1.8;'>"
+        "즉시 <b>119에 연락</b>하거나<br>"
+        "가장 가까운 <b>응급실로 이동</b>하십시오."
+        "</div></div>",
+        unsafe_allow_html=True,
+    )
+    st.write("")
+    col_call, col_ok = st.columns(2)
+    with col_call:
+        st.link_button(
+            "📞 응급실 찾기",
+            "https://map.kakao.com/?q=응급실",
+            use_container_width=True,
+            type="primary",
+        )
+    with col_ok:
+        if st.button("확인", use_container_width=True):
+            st.session_state["show_emergency_popup"] = False
+            st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Step 2: 의사용 문진 요약 리포트
+# ═══════════════════════════════════════════════════════════════════════════════
+def _tab_report() -> None:
+    """Step 2 화면: LLM이 생성한 의사용 1장짜리 문진 요약 리포트."""
+    report = st.session_state.get("report_data") or {}
+    gender = st.session_state.get("patient_gender", "—")
+    age = st.session_state.get("patient_age_group", "—")
+
+    # 환자 정보
+    st.markdown(
+        f'<div class="report-card">'
+        f'<div class="report-section-title">👤 환자 정보</div>'
+        f'<p style="margin:0; font-size:1em;"><b>{gender}</b> · <b>{age}</b></p>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    # 의심 진료과
+    dept = report.get("suspected_department", "분석 중…")
+    st.markdown(
+        f'<div class="report-card">'
+        f'<div class="report-section-title">🏥 의심 진료과</div>'
+        f'<p style="margin:0; font-size:1em;"><b>{dept}</b></p>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    # 핵심 호소 증상
+    complaints = report.get("chief_complaint", [])
+    if isinstance(complaints, list):
+        items_html = "".join(
+            f'<span class="report-tag">• {c}</span>' for c in complaints
+        )
+    else:
+        items_html = f'<span class="report-tag">{complaints}</span>'
+    st.markdown(
+        f'<div class="report-card">'
+        f'<div class="report-section-title">🩺 핵심 호소 증상</div>'
+        f'{items_html}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    # 발현 시기 및 강도
+    onset = report.get("onset_and_severity", "언급 없음")
+    st.markdown(
+        f'<div class="report-card">'
+        f'<div class="report-section-title">📅 발현 시기 및 강도</div>'
+        f'<p style="margin:0; font-size:0.93em;">{onset}</p>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    # 추가 참고사항
+    notes = report.get("additional_notes", "언급 없음")
+    st.markdown(
+        f'<div class="report-card">'
+        f'<div class="report-section-title">📝 추가 참고사항</div>'
+        f'<p style="margin:0; font-size:0.93em;">{notes}</p>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.write("")
+
+    # 하단 버튼: 지도 / 예약
+    col1, col2 = st.columns(2)
+    with col1:
+        st.link_button(
+            "🗺️ 가까운 병원",
+            "https://map.kakao.com/?q=내과",
+            use_container_width=True,
+        )
+        st.link_button(
+            "💊 가까운 약국",
+            "https://map.kakao.com/?q=약국",
+            use_container_width=True,
+        )
+    with col2:
+        st.link_button(
+            "📞 병원 예약",
+            "https://www.ddocdoc.com/",
+            use_container_width=True,
+        )
+        if st.button("🔄 새 문진 시작", use_container_width=True, type="primary"):
+            st.session_state.update({
+                "step": 0,
+                "patient_gender": None,
+                "patient_age_group": None,
+                "chat_history": [],
+                "greeting_shown": False,
+                "report_data": None,
+                "show_emergency_popup": False,
+            })
+            st.rerun()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -725,7 +1030,7 @@ def _tab_settings() -> None:
 - 의학적 조언은 참고용이며, **전문의 상담을 권장**합니다
 
 **한계:**
-- 본 챗봇은 연구/교육 목적의 프로토타입입니다
+- 본 챗봇은 연구/교육 및 서비스 테스트 목적의 프로토타입입니다
 - 실제 진단 및 처방에 사용하지 마세요
     """)
 
@@ -749,20 +1054,36 @@ def main() -> None:
 
     st.title(PAGE_TITLE)  # CSS로 숨김 처리 (폰 앱 헤더 사용)
 
-    # 폰 앱 헤더
-    st.markdown(
-        '<div class="phone-app-header">'
-        "<h3>🐱 알려줄고양</h3>"
-        "<p>내과 AI 챗봇 서비스 · 보통 몇 분 내에 응답한다냥.</p>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+    # Disclaimer 미동의 → 동의 화면만 표시
+    if not st.session_state.get("disclaimer_agreed", False):
+        _disclaimer_screen()
+        return
 
-    # step 분기: 0=프로필 입력, 1=채팅
+    # step별 폰 앱 헤더
+    if st.session_state["step"] < 2:
+        st.markdown(
+            '<div class="phone-app-header">'
+            "<h3>🐱 알려줄고양</h3>"
+            "<p>내과 AI 챗봇 서비스 · 보통 몇 분 내에 응답한다냥.</p>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<div class="phone-app-header">'
+            "<h3>🏥 문진 요약 리포트</h3>"
+            "<p>이 화면을 의사에게 보여주세요.</p>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+    # step 분기: 0=프로필 입력, 1=채팅, 2=리포트
     if st.session_state["step"] == 0:
         _profile_setup()
-    else:
+    elif st.session_state["step"] == 1:
         _tab_chat()
+    else:
+        _tab_report()
 
 
 if __name__ == "__main__":
