@@ -20,7 +20,7 @@ env/
 # 모델 가중치 (용량이 크므로 별도 관리)
 /models/
 *.bin
-*.safetensors
+# *.safetensors
 *.pt
 *.ckpt
 
