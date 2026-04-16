@@ -2,61 +2,21 @@
 
 from __future__ import annotations
 
-import json
 import re
-from collections import Counter
-from pathlib import Path
 from typing import Optional
 
-_DICTIONARY_PATH = Path(__file__).resolve().parents[2] / "data" / "raw" / "ko_en_dictionary.json"
-_KOREAN_RANGE = r"\uac00-\ud7a3"
+from ingestion.preprocess.create_dictionary import (
+    contains_keyword,
+    extract_keyword_candidates,
+    load_keyword_synonyms,
+    normalize_text,
+)
 
-_KOREAN_STOPWORDS = {
-    "및", "또는", "그리고", "에서", "으로", "이다", "있다", "있으며", "있는", "한다", "통해",
-    "경우", "주요", "원인", "증상", "치료", "진단", "질환", "사용", "발생", "환자", "검사",
-    "상태", "의해", "위해", "수치", "확인", "평가", "의미", "같은", "특히",
-}
+_KO_TO_EN_SYNONYMS, _EN_TO_KO_SYNONYMS = load_keyword_synonyms()
 
 
 def _normalize(text: str) -> str:
-    text = (text or "").lower()
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
-
-
-def _load_keyword_synonyms(path: Path = _DICTIONARY_PATH) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
-    """Load ko->en dictionary from JSON and build reverse en->ko map."""
-    ko_to_en: dict[str, set[str]] = {}
-    en_to_ko: dict[str, set[str]] = {}
-
-    if not path.exists():
-        return ko_to_en, en_to_ko
-
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return ko_to_en, en_to_ko
-
-    if not isinstance(raw, dict):
-        return ko_to_en, en_to_ko
-
-    for ko_key, aliases in raw.items():
-        n_ko = _normalize(str(ko_key))
-        if not n_ko:
-            continue
-
-        values = aliases if isinstance(aliases, list) else []
-        for alias in values:
-            n_en = _normalize(str(alias))
-            if not n_en or n_en == n_ko:
-                continue
-            ko_to_en.setdefault(n_ko, set()).add(n_en)
-            en_to_ko.setdefault(n_en, set()).add(n_ko)
-
-    return ko_to_en, en_to_ko
-
-
-_KO_TO_EN_SYNONYMS, _EN_TO_KO_SYNONYMS = _load_keyword_synonyms()
+    return normalize_text(text)
 
 
 def _extract_choice_number(text: str) -> Optional[str]:
@@ -69,69 +29,11 @@ def _extract_choice_number(text: str) -> Optional[str]:
 
 
 def _extract_keyword_candidates(text: str, max_keywords: int = 3) -> list[str]:
-    normalized = _normalize(text)
-    if not normalized:
-        return []
-
-    acronym_priority = [
-        token.lower()
-        for token in re.findall(r"\b[A-Z]{2,}[A-Z0-9+\-_/]*\b", text or "")
-    ]
-
-    token_pattern = rf"[{_KOREAN_RANGE}]{{2,}}|[a-z][a-z0-9+\-_/]{{1,}}"
-    tokens = re.findall(token_pattern, normalized)
-
-    filtered: list[str] = []
-    for token in tokens:
-        if token in _KOREAN_STOPWORDS:
-            continue
-        if len(token) <= 1:
-            continue
-        filtered.append(token)
-
-    if not filtered:
-        return []
-
-    counts = Counter(filtered)
-    first_idx: dict[str, int] = {}
-    for idx, token in enumerate(filtered):
-        if token not in first_idx:
-            first_idx[token] = idx
-
-    ranked = sorted(counts.keys(), key=lambda t: (-counts[t], first_idx[t]))
-
-    merged: list[str] = []
-    for token in acronym_priority + ranked:
-        if token not in merged:
-            merged.append(token)
-        if len(merged) >= max_keywords:
-            break
-
-    return merged[:max_keywords]
-
-
-def _expand_keyword_variants(keyword: str) -> set[str]:
-    n_keyword = _normalize(keyword)
-    variants = {n_keyword}
-
-    if n_keyword in _KO_TO_EN_SYNONYMS:
-        variants.update(_KO_TO_EN_SYNONYMS[n_keyword])
-    if n_keyword in _EN_TO_KO_SYNONYMS:
-        variants.update(_EN_TO_KO_SYNONYMS[n_keyword])
-
-    return {v for v in variants if v}
+    return extract_keyword_candidates(text, max_keywords=max_keywords)
 
 
 def _contains_keyword(text: str, keyword: str) -> bool:
-    normalized_text = _normalize(text)
-    for variant in _expand_keyword_variants(keyword):
-        if re.search(r"[a-z]", variant):
-            if re.search(rf"(?<![a-z0-9]){re.escape(variant)}(?![a-z0-9])", normalized_text):
-                return True
-        else:
-            if variant in normalized_text:
-                return True
-    return False
+    return contains_keyword(text, keyword, _KO_TO_EN_SYNONYMS, _EN_TO_KO_SYNONYMS)
 
 
 def exact_match(prediction: str, ground_truth: str, q_type: Optional[int | str] = None) -> float:
