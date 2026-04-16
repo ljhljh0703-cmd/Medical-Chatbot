@@ -5,6 +5,10 @@
   - 기존 가중치 로드 또는 새로운 LoRA 차원(Rank) 설정
   - 학습률 및 LoRA 하이퍼파라미터 유연한 변경
   - CoT 데이터셋을 활용한 추가 미세 조정(Fine-Tuning)
+  - 100 step 마다 early stopping 적용
+
+주의사항:
+    - 학습 파일 경로 새로 설정해야할 필요 있음 
 """
 
 import os
@@ -14,7 +18,7 @@ import torch
 import gc
 from transformers import AutoTokenizer
 from trl import SFTTrainer, SFTConfig
-
+from transformers import EarlyStoppingCallback 
 sys.path.append(os.getcwd())
 
 from src.training.data_module import MedicalDataModule
@@ -41,12 +45,12 @@ def resume_training(base_checkpoint_path, new_data_path, output_dir,
     # ------------------------------------------------------------
     if base_checkpoint_path:
         # [주의] 기존 가중치를 불러올 때는 기존에 저장된 r, alpha 값이 강제 적용됩니다.
-        print(f" [Load] 기존 가중치를 이어받습니다: {base_checkpoint_path}")
-        print(f" 기존 체크포인트 로드 시 lora_r({lora_r}) 설정은 무시되고 기존 설정이 유지됩니다.")
+        print(f"🔄 [Load] 기존 가중치를 이어받습니다: {base_checkpoint_path}")
+        print(f"⚠️  기존 체크포인트 로드 시 lora_r({lora_r}) 설정은 무시되고 기존 설정이 유지됩니다.")
         model = model_module.load_existing_lora_for_training(model, base_checkpoint_path)
     else:
         # [신규] 베이스 모델에 내가 원하는 차원(r)으로 새로 붙일 때
-        print(f"새로운 설정을 적용합니다: lora_r={lora_r}, lora_alpha={lora_alpha}")
+        print(f"🆕 [New] 새로운 설정을 적용합니다: lora_r={lora_r}, lora_alpha={lora_alpha}")
         
         # 가변 파라미터를 적용하기 위해 임시로 설정 dict 수정
         custom_train_cfg = config['training'].copy()
@@ -59,6 +63,7 @@ def resume_training(base_checkpoint_path, new_data_path, output_dir,
     # 3. 데이터 준비 및 CoT 전용 설정 (Data Preparation)
     # ------------------------------------------------------------
     data_module = MedicalDataModule(tokenizer)
+    eval_ds = data_module.get_formatted_dataset(config['data']['valid'])
     train_ds = data_module.get_formatted_dataset(new_data_path)
     
     # ------------------------------------------------------------
@@ -70,12 +75,22 @@ def resume_training(base_checkpoint_path, new_data_path, output_dir,
         gradient_accumulation_steps=8,
         learning_rate=lr,
         num_train_epochs=epochs,
-        max_length=1024,           # CoT의 긴 추론 과정을 담기 위한 충분한 길이
+        max_length=720,           # CoT의 긴 추론 과정을 담기 위한 충분한 길이
         dataset_text_field="text",
         bf16=True,                 # Ampere 아키텍처 이상 GPU 가속
         gradient_checkpointing=True,
         optim="paged_adamw_32bit", # VRAM 부족 시 시스템 RAM 활용
-        report_to="none"
+        report_to="none",
+        #valdiloss 기준 모델 선정
+        eval_strategy="steps",           # 스텝 단위로 평가 (필수)
+        eval_steps=100,                  # 100스텝마다 감시관이 점수 체크
+        save_strategy="steps",           # 평가와 맞춰서 저장 (필수)
+        save_steps=100,
+        load_best_model_at_end=True,     # [중요] 가장 좋은 모델로 자동 복구
+        metric_for_best_model="eval_loss",# 판단 기준은 Validation Loss
+        greater_is_better=False,         # Loss는 낮을수록 좋으므로 False
+        save_total_limit=2,               #총 2개 모델 저장
+        logging_steps=10,                 # 로그는 더 자주 찍어서 흐름 파악
     )
 
     # ------------------------------------------------------------
@@ -85,9 +100,12 @@ def resume_training(base_checkpoint_path, new_data_path, output_dir,
         model=model, 
         args=sft_config, 
         train_dataset=train_ds,
+        eval_dataset=eval_ds,
+        #얼리 스타핑 최대 300 스텝
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
     )
     
-    print(f" 학습 시작... (데이터: {new_data_path})")
+    print(f"🚀 학습 시작... (데이터: {new_data_path})")
     trainer.train()
 
     model.save_pretrained(output_dir)
@@ -97,7 +115,7 @@ def resume_training(base_checkpoint_path, new_data_path, output_dir,
     del trainer
     gc.collect()
     torch.cuda.empty_cache()
-    print(f" 학습 완료 및 저장 성공: {output_dir}")
+    print(f"🎉 학습 완료 및 저장 성공: {output_dir}")
 
 if __name__ == "__main__":
     # ------------------------------------------------------------
@@ -108,7 +126,7 @@ if __name__ == "__main__":
     PREVIOUS_WEIGHTS = None 
     
     # 2. 학습할 데이터셋 경로
-    NEW_DATASET = "data/processed/merged_3000_sampled.jsonl"
+    NEW_DATASET = "data/processed/train.jsonl"
     
     # 3. 결과물이 저장될 폴더 이름
     SAVE_PATH = "src/training/lora_custom_rank_16"

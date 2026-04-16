@@ -21,6 +21,7 @@ data:
   stage1: "data/processed/merged_단답형.jsonl"
   stage2: "data/processed/merged_서술형.jsonl"
   stage3: "data/processed/merged_객관식.jsonl"
+  valid: "data/processed/valid.jsonl"
 
 
 training:
