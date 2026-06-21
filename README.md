@@ -1,189 +1,158 @@
-# 내과 의료 챗봇 (Medical Chatbot)
+<!-- Medical-Chatbot 깃허브 repo용 README. 검증 사실(발표자료 PDF·AI-Hub·repo) 기반. 작가가 repo 루트 README.md로 복사. -->
+# 알려줄고양 · Medical Chatbot
 
-> Qwen2.5-7B-Instruct 기반 RAG + LoRA 내과 전문 챗봇
+> 내과 도메인에 특화된 **AI 의료 자문 챗봇**. LoRA 파인튜닝 + Hybrid RAG + RedFlag 안전필터로 "안전을 코드로 설계"한 사전 문진 도우미.
 
----
+![stage](https://img.shields.io/badge/stage-작동_프로토타입-blue) ![model](https://img.shields.io/badge/LLM-Qwen2.5--7B--Instruct%2BLoRA-orange) ![rag](https://img.shields.io/badge/RAG-Hybrid(BM25%2BDense)-green) ![license](https://img.shields.io/badge/data-AI--Hub_(clean--room)-lightgrey)
 
-## 개요
-
-- **모델**: Qwen2.5-7B-Instruct (로컬), gpt-4o-mini (fallback)
-- **검색**: Dense (OpenAI text-embedding-3-small) + Sparse (BM25) + Hybrid 융합
-- **파인튜닝**: PEFT LoRA (r=16, alpha=32) + BitsAndBytes 4-bit 양자화
-- **평가**: EM / ROUGE-L / BERTScore / LLM-as-Judge
-- **서빙**: FastAPI REST API + Streamlit 프론트엔드
+> ⚠️ **의료 안전 고지** — 본 챗봇은 **참고용 자문 도구**이며 의학적 진단·처방을 대체하지 않습니다. 이상 증상은 반드시 전문 의료기관을 방문하세요.
 
 ---
 
-## 디렉터리 구조
+## 📄 포트폴리오 · 데모
+
+- **인터랙티브 포트폴리오**: [`docs/portfolio.html`](./docs/portfolio.html) — 기능·아키텍처·평가 결과를 한눈에 (repo `docs/`에 배치 후 GitHub Pages 권장)
+- **발표자료(PDF)**: [Google Drive](https://drive.google.com/file/d/1Tu9P8ALFhJbKnqfvpBHS3H_C5oGtQfgj/view)
+- **데모 영상 (시나리오 4종)**:
+  | 시나리오 | 시연 기능 | 링크 |
+  |---|---|---|
+  | 체온 40도 | 🚨 Red Flag → Emergency Exit | https://youtu.be/TfC9v9idPLc |
+  | 전신 두드러기 | ⚠️ Semi Red Flag 경고 배너 | https://youtu.be/x3v56hw8stk |
+  | 감기 (싱글턴) | 단일 질의 자문 | https://youtu.be/neYV6TMC-XA |
+  | 복통 (멀티턴) | 🔁 다중턴 문진 → 리포트 | https://youtu.be/_FehgjfhF9g |
+
+---
+
+## ✨ 핵심 기능
+
+- **🚨 RedFlag 안전장치** — 응급 키워드를 *안내문이 아닌 코드*로 탐지. `BYPASS` 13개 정규식 감지 시 LLM·RAG를 건너뛰고 119·응급실 가이드 즉시 반환(Emergency Exit). `RED_FLAG` 37개 키워드는 경고 배너 후 정상 자문 진행.
+- **📚 Hybrid RAG (출처 인용)** — Dense(의미) + BM25(키워드) 검색을 α=0.5로 결합. 참조 청크·유사도까지 제시해 환각을 억제.
+- **🧬 QLoRA 도메인 특화** — Qwen2.5-7B-Instruct를 내과 데이터로 **LoRA(r=16) + 4-bit 양자화(nf4)** 파인튜닝(QLoRA). PeftModel로 어댑터 동적 부착.
+- **🔤 QueryNormalizer** — 일상어("머리 지끈")를 표준 의학용어("두통")로 변환해 검색 정확도 확보. *피부질환 의료상담 챗봇 질의문 언어패턴 연구*를 내과에 응용한 `SYMPTOM_PATTERNS` 설계.
+- **🔁 멀티턴 문진** — 기간·악화요인·동반증상을 추가 질문으로 수집(감별진단).
+- **📋 의사용 문진 요약 리포트** — 의심질병·참조 문서·인근 병원(카카오맵)을 의사 전달용으로 정리. `PostFilter`가 단정형→권유형 어미 변환 + 면책 자동 삽입.
+
+---
+
+## 🏗 아키텍처
 
 ```
-Medical Chat Bot(내과)/
-│
-├── configs/                        # 설정 파일
-│   ├── train_config.yaml           # LoRA 학습 하이퍼파라미터
-│   └── app_config.yaml             # 서빙 환경 설정
-│
-├── data/                           # 데이터 (gitignore·별도 보관)
-│   ├── raw/                        # 원본 JSON 데이터
-│   └── processed/                  # 전처리 완료 데이터 (train/test 분리)
-│
-├── docs/                           # 문서 (추후 작성)
-│
-├── src/
-│   ├── app/                        # FastAPI 애플리케이션
-│   │   ├── main.py                 # 앱 진입점 · CORS 설정
-│   │   ├── routers/
-│   │   │   └── chat.py             # /chat 엔드포인트
-│   │   └── schemas/
-│   │       └── chat.py             # 요청/응답 Pydantic 스키마
-│   │
-│   ├── config/                     # 전역 설정
-│   │   ├── settings.py             # pydantic-settings (.env 로드)
-│   │   └── prompts.py              # 시스템 프롬프트 템플릿
-│   │
-│   ├── domain/
-│   │   └── models/
-│   │       └── __init__.py         # RetrievedChunk 등 도메인 모델
-│   │
-│   ├── evaluation/                 # 평가 모듈
-│   │   ├── evaluator.py            # 평가 파이프라인 (LLM-as-Judge 포함)
-│   │   ├── metrics.py              # EM · ROUGE-L · BERTScore 계산
-│   │   └── report.py              # 결과 리포트 생성
-│   │
-│   ├── frontend/
-│   │   └── streamlit_app.py        # Streamlit 3탭 UI (채팅/평가/설정)
-│   │
-│   ├── ingestion/                  # 지식베이스 구축 파이프라인
-│   │   ├── loaders/
-│   │   │   └── json_loader.py      # JSON 원본 로더
-│   │   ├── preprocess/
-│   │   │   └── cleaner.py          # 텍스트 정제
-│   │   ├── chunking/
-│   │   │   └── chunker.py          # 문서 청킹 (size·overlap 설정)
-│   │   └── indexing/
-│   │       └── build_knowledge_base.py  # ChromaDB 인덱싱
-│   │
-│   ├── llm/                        # LLM 클라이언트 · 생성 서비스
-│   │   ├── generation_service.py   # 프롬프트 조립 → 응답 생성
-│   │   └── model_clients/
-│   │       ├── openai_client.py    # OpenAI API 클라이언트
-│   │       └── qwen_client.py      # Qwen 로컬 추론 클라이언트
-│   │
-│   ├── observability/
-│   │   └── logger.py               # 구조화 로깅 (JSON)
-│   │
-│   ├── retrieval/                  # 검색 모듈
-│   │   ├── dense/
-│   │   │   ├── embedder.py         # 텍스트 임베딩 (OpenAI)
-│   │   │   ├── chroma_store.py     # ChromaDB 저장소 래퍼
-│   │   │   └── dense_retriever.py  # Dense 벡터 검색
-│   │   ├── sparse/
-│   │   │   └── bm25_retriever.py   # BM25 희소 검색 (rank-bm25)
-│   │   ├── hybrid/
-│   │   │   └── fusion.py           # Weighted-Sum / RRF 하이브리드 융합
-│   │   └── query/
-│   │       └── normalizer.py       # 쿼리 정규화 · 확장
-│   │
-│   ├── safety/                     # 안전 필터
-│   │   ├── safety_service.py       # 안전 파이프라인 오케스트레이터
-│   │   ├── red_flag/
-│   │   │   └── detector.py         # 위험·비의료 입력 감지
-│   │   └── filters/
-│   │       └── post_filter.py      # 응답 후처리 필터
-│   │
-│   ├── services/                   # 비즈니스 로직
-│   │   ├── chat_service.py         # Safety→Retrieval→Generation 전체 파이프라인
-│   │   └── retrieval_service.py    # 검색 서비스 (Dense/Hybrid 선택)
-│   │
-│   └── training/                   # 학습 모듈 (src 표준)
-│       ├── __init__.py
-│       ├── data_module.py          # 데이터셋 준비 · 분리 · DataCollator
-│       ├── model_module.py         # 베이스 모델 로드 · LoRA 적용 · 병합
-│       ├── trainer_module.py       # SFTTrainer 빌드 · 학습 실행
-│       └── main_train.py           # YAML 파싱 → 학습 파이프라인 진입점
-│
-├── training/                       # 레거시 학습 스크립트 (shim — src/training 위임)
-│   ├── prepare_dataset.py
-│   ├── finetune_lora.py
-│   └── merge_adapter.py
-│
-├── .env                            # API 키 등 환경 변수 (gitignore)
-├── .gitignore
-├── requirements.txt                # 의존성 패키지
-├── run_train.sh                    # 학습 원클릭 실행 스크립트
-└── README.md
+사용자 입력
+   │  Streamlit UI (:8501)        FastAPI (:8000)
+   ▼
+ChatService (오케스트레이터)
+   ├── SafetyService     → RedFlagDetector(BYPASS 13 / RED_FLAG 37) · PostFilter
+   ├── RetrievalService  → QueryNormalizer → Hybrid(Dense+BM25, α=0.5) → ChromaDB
+   └── GenerationService → SYSTEM_PROMPT + RAG_CONTEXT + query → OpenAI / Qwen(+LoRA)
+   ▼
+ChatResult (자문 응답 + 참조 근거 + 면책)
 ```
+
+## 🧰 기술 스택
+
+| 영역 | 스택 |
+|---|---|
+| LLM | Qwen2.5-7B-Instruct + **QLoRA**(LoRA r=16 · 4-bit nf4) · PeftModel · OpenAI API(CoT 전처리·한↔영 의학용어 Dictionary) |
+| 백엔드 | FastAPI (`:8000`) · ChatService / SafetyService / RetrievalService / GenerationService |
+| 프론트엔드 | Streamlit (`:8501`) — Disclaimer → Profile → Chat → Report 4단계 |
+| RAG | ChromaDB(벡터) · BM25Okapi + Kiwi 형태소 · Hybrid(α=0.5) · ko-sroberta-multitask(768d) |
+| 안전 | RedFlagDetector · PostFilter |
+| 외부 | 카카오맵(위치 기반 병원·응급실) |
 
 ---
 
-## 빠른 시작
+## 🧠 모델 학습
 
-### 1. 환경 설정
+- **베이스**: Qwen2.5-7B-Instruct (76.1억 파라미터) → Full Fine-Tuning 불가 → **QLoRA = LoRA(r=16, 642만 파라미터 / 전체의 0.084%) + 4-bit 양자화(`load_in_4bit: true`, `quant_type: nf4`)** 로 자원 절감. (config: `train_config.yaml`)
+- **CoT 전처리**: `instruction`="주어진 임상 문제 및 환자 상태를 분석하여, 최적의 진단/처치 또는 의학적 근거를 논리적인 추론 과정과 함께 서술하시오." → 출력 `[상황·핵심 파악] → [의학적 추론·근거] → [최종 결론]` 3단 구조.
+- **3-Stage 커리큘럼** (질문 유형별 점진 학습):
+
+  | Stage | 데이터 | max_len | batch | lr | epoch |
+  |---|---|---|---|---|---|
+  | 1 | 단답형 | 560 | 4 | 0.002 | 2 |
+  | 2 | 서술형 | 730 | 2 | 0.001 | 2 |
+  | 3 | 객관식 | 840 | 2 | 0.0005 | 2 |
+
+---
+
+## 🗂 데이터 출처 (clean-room)
+
+학습·RAG 데이터는 **AI-Hub** 공개 의료 데이터셋을 사용했습니다.
+
+- [**필수의료 의학지식 데이터** (dataSetSn 71875)](https://www.aihub.or.kr/aihubdata/data/view.do?dataSetSn=71875)
+- [**전문 의학지식 데이터** (dataSetSn 71874)](https://www.aihub.or.kr/aihubdata/data/view.do?dataSetSn=71874)
+- 구축: 과학기술정보통신부 · 한국지능정보사회진흥원(NIA) / 주관: 가톨릭대학교 산학협력단 (서울성모·삼성서울·서울대·세브란스·보라매병원 참여)
+
+**본 프로젝트 사용 범위**
+- 내과 도메인 질의응답 **12,781쌍** → train/valid **10,299 / 1,248** 분할·CoT 전처리 → LoRA 학습
+- 원천 의학 말뭉치(의학 교과서·학회 가이드라인·온라인 의료 정보) → 청킹(size 500 / overlap 50) → **RAG 약 27,000 chunk** (학술 논문·기타는 미사용)
+- 처리 데이터(repo): `TL_내과_통합.json` · `VL_내과_통합.json`(내과 통합 train/valid) · 한↔영 의학용어 사전 `ko_en_dictionary.json`
+
+> 🔒 본 데이터는 보건의료 데이터로 **안심존(보안구역)** 을 통해 연구·개발 목적으로 개방됩니다. **원본 데이터는 재배포하지 않으며, 본 저장소는 *설계·코드·결과*만 공개합니다.**
+
+---
+
+## 📊 평가 결과 — 3원 통제 비교 (valid 1,248)
+
+> 동일 평가셋에서 변수(LoRA·RAG)를 하나씩 통제 추가해 설계 선택의 독립 기여도를 분리.
+
+| 지표 | Mode A (LLM) | Mode B (LLM+RAG) | **Mode C (LoRA+RAG)** ✅ |
+|---|---|---|---|
+| 객관식 EM (995) | 0.69 | 0.67 | **0.71** |
+| 단답형 EM (148) | 0.05 | 0.06 | **0.06** |
+| 서술형 Rouge-L (105) | 0.12 | 0.11 | **0.14** |
+| 서술형 BERT Score (105) | 0.70 | 0.69 | **0.73** |
+
+- **LoRA Fine-tuning + Hybrid Retrieval RAG(Mode C)가 전 지표 최고.** 단 객관식 +0.02·서술형 BERT +0.03의 *소폭 우위*이며, "압도적 향상"이 아님을 정직하게 표기합니다.
+- **단답형 EM이 전 모드 0.05~0.06으로 낮음** — 한↔영 의학용어 표기 차이에서 오는 *지표 한계*(채점용 한영 Dictionary 생성). 과대포장 없이 노출합니다.
+
+> **평가 설계(repo)**: 자동지표(EM·ROUGE-L·BERTScore) 외에 **Evidence-F1**(모델이 인용한 근거 vs gold 근거 일치 — `retrieved_doc_ids` ↔ `gold_doc_ids`), **LLM-as-Judge**, Safety metrics(red-flag 검출률)까지 설계. 개선 유의성은 paired 검정(McNemar·Wilcoxon)으로 확인. (`metrics.py`)
+
+---
+
+## 🚀 실행 (BYOK)
+
+> 키는 코드에 하드코딩하지 않고 **환경변수 또는 앱 내 입력(BYOK)** 으로 주입합니다. `.env`는 `.gitignore` 처리(템플릿은 `.env.example`).
 
 ```bash
+# 1) 설치
 pip install -r requirements.txt
-cp .env.example .env   # OPENAI_API_KEY 입력
-```
 
-### 2. 지식베이스 구축
+# 2) 환경변수 (또는 Streamlit 앱에서 직접 입력)
+cp .env.example .env          # OPENAI_API_KEY 등 설정
 
-```bash
-python src/ingestion/indexing/build_knowledge_base.py \
-    --input data/raw/<파일>.json
-```
+# 3) 지식베이스 구축 (RAG 인덱스 — ChromaDB + BM25)
+python src/.../build_knowledge_base.py    # 경로는 repo 구조 참조
 
-### 3. 서버 실행
+# 4) (선택) 도메인 학습 — QLoRA 3-Stage 커리큘럼
+bash run_train.sh             # 설정: training/train_config.yaml
 
-```bash
-# FastAPI
-uvicorn src.app.main:app --reload --port 8000
-
-# Streamlit (별도 터미널)
+# 5) 앱 실행 (Streamlit)
 streamlit run src/frontend/streamlit_app.py
 ```
 
-### 4. LoRA 학습
-
-```bash
-# 데이터 준비
-python training/prepare_dataset.py \
-    --input data/raw/<파일>.json \
-    --output_dir data/processed
-
-# 학습 실행
-bash run_train.sh
-# 또는 직접 호출
-bash run_train.sh --config configs/train_config.yaml \
-                  --train_path data/processed/train.json \
-                  --eval_path data/processed/test.json
-```
+> repo 핵심 모듈 — 검색·임베딩 `embedder.py` / `chroma_store.py` / `bm25_retriever.py` / `fusion.py` · 생성·학습 `model_module.py` / `trainer_module.py` / `generation_service.py` · 안전·평가 `safety_service.py` / `detector.py` / `metrics.py` · 데이터 `build_knowledge_base.py` / `chunker.py` (config: `train_config.yaml` · `app_config.yaml`).
 
 ---
 
-## 설정 파일
+## 🔭 한계 · 다음
 
-| 파일 | 용도 |
-|------|------|
-| `configs/train_config.yaml` | LoRA 학습 전용 하이퍼파라미터 |
-| `configs/app_config.yaml` | 서빙 환경 (검색·안전·로깅) |
-| `src/config/settings.py` | 런타임 설정 (`.env` 로드) |
-
----
-
-## 주요 의존성
-
-| 패키지 | 용도 |
-|--------|------|
-| `transformers>=4.40.0` | Qwen2.5 모델 |
-| `peft>=0.10.0` | LoRA 파인튜닝 |
-| `trl>=0.8.0` | SFTTrainer |
-| `chromadb` | 벡터 스토어 |
-| `rank-bm25>=0.2.2` | BM25 희소 검색 |
-| `openai` | 임베딩 + LLM-as-Judge |
-| `fastapi` + `streamlit` | API + UI |
+- **단답형 EM 한계** → 의학용어 사전 확장 · Fuzzy Match 평가 도입.
+- **Reranker 미적용**(현재 Hybrid fusion까지) → cross-encoder(예: bge-reranker) 추가 시 정밀도 향상 기대. (근거: Nogueira & Cho, *Passage Re-ranking with BERT*, 2019)
+- **RAG 전용 평가 미실시** → RAGAS(faithfulness·context recall)로 검색/생성 단계 분리 진단 예정. (근거: Es et al., arXiv:2309.15217)
+- 현재 **내과 한정** → 타과 확장 시 도메인별 데이터·안전필터 재설계 필요.
 
 ---
 
-## 브랜치 전략
+## 👤 팀 · 기간
 
-`main` — 안정 통합 브랜치 (직접 push 지양)
+- **멋쟁이사자처럼 AI 엔지니어 NLP 부트캠프** 팀 프로젝트 (4인) · 기간 약 1주일
+- **이주형** — 팀장 · PM · 프론트엔드 · UX · AI 파이프라인 기획 · 검색 모듈(BM25+Hybrid) 담당 (모델 학습·백엔드 일부는 팀 공동)
+
+---
+
+## 📜 라이선스 · 면책
+
+- 코드: (저장소 LICENSE 참조)
+- 데이터: AI-Hub 보건의료 데이터(연구·개발 목적, 안심존 개방) — 원본 비재배포.
+- **의료 면책**: 본 서비스는 참고용 자문 도구이며 의학적 진단·처방을 대체하지 않습니다. 응급 시 즉시 119 또는 가까운 응급실로.

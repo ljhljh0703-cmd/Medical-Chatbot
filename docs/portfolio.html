@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>알려줄고양 — 내과 의료자문 챗봇 · 포트폴리오</title>
+<meta name="description" content="LoRA+Hybrid RAG+RedFlag 안전필터를 결합한 내과 전문 의료자문 챗봇. Mode A/B/C 3원 통제 실험으로 eval 설계 역량을 입증. 멋쟁이사자처럼 NLP 부트캠프 팀 프로젝트." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ========== CSS 변수 — 의료 teal/green 톤으로 accent 교체, 구조 유지 ========== */
+  :root{
+    --bg:#f5f9f8;
+    --bg-soft:#eaf3f1;
+    --surface:#ffffff;
+    --ink:#0e1f1b;
+    --ink-soft:#3b5a54;
+    --ink-faint:#7a9b94;
+    --line:#d8ebe6;
+    --brand:#0d9b82;
+    --brand-2:#0a7d6b;
+    --accent:#26c485;
+    --warn:#ff7a59;
+    --shadow:0 10px 40px -12px rgba(10,90,70,.14);
+    --shadow-lg:0 30px 80px -24px rgba(10,90,70,.22);
+    --radius:22px;
+    --maxw:1120px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'Noto Sans KR','Inter',system-ui,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+    word-break:keep-all;
+    overflow-wrap:anywhere;
+  }
+  /* 한국어 줄맞춤: 단어 중간 안 끊김 + 긴 토큰 예외 처리 */
+  p,li,td,th,.card p,.pp .col p,.node p,.mh-card p,.band p.body,.section-sub{
+    word-break:keep-all;
+    overflow-wrap:anywhere;
+    text-wrap:pretty;
+  }
+  h1,h2,h3,h4,.section-title,.lead-q{
+    word-break:keep-all;
+    overflow-wrap:anywhere;
+    text-wrap:balance;
+  }
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  a{color:inherit;text-decoration:none}
+  section{position:relative}
+
+  /* 면책 강조 배너 */
+  .disclaimer-bar{
+    background:linear-gradient(90deg,rgba(13,155,130,.10),rgba(10,125,107,.08));
+    border-bottom:1px solid rgba(13,155,130,.22);
+    padding:8px 0;
+    font-size:13px;color:var(--ink-soft);text-align:center;
+  }
+  .disclaimer-bar b{color:var(--brand)}
+
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--brand);
+    background:linear-gradient(90deg,rgba(13,155,130,.10),rgba(10,125,107,.08));
+    padding:7px 14px;border-radius:999px;border:1px solid rgba(13,155,130,.22);
+  }
+  h2.section-title{font-size:clamp(28px,4vw,44px);font-weight:900;letter-spacing:-.02em;margin:18px 0 14px;line-height:1.15}
+  .section-sub{font-size:17px;color:var(--ink-soft);max-width:680px}
+
+  /* Reveal on scroll */
+  .reveal{opacity:0;transform:translateY(28px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+
+  /* ============ NAV ============ */
+  nav{
+    position:fixed;top:0;left:0;right:0;z-index:50;
+    backdrop-filter:saturate(180%) blur(14px);
+    background:rgba(245,249,248,.82);
+    border-bottom:1px solid transparent;
+    transition:border-color .3s, background .3s;
+  }
+  nav.scrolled{border-bottom:1px solid var(--line);background:rgba(245,249,248,.94)}
+  .nav-inner{max-width:var(--maxw);margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:-.01em}
+  .brand .logo{
+    width:30px;height:30px;border-radius:9px;
+    background:linear-gradient(135deg,var(--brand),var(--brand-2));
+    display:grid;place-items:center;color:#fff;font-size:16px;
+    box-shadow:0 6px 16px -4px rgba(13,155,130,.5);
+  }
+  .nav-links{display:flex;gap:26px;align-items:center}
+  .nav-links a{font-size:14.5px;font-weight:600;color:var(--ink-soft);transition:color .2s}
+  .nav-links a:hover{color:var(--brand)}
+  .nav-cta{
+    background:var(--ink);color:#fff;padding:9px 18px;border-radius:999px;font-size:14px;font-weight:700;
+    transition:transform .2s, box-shadow .2s;
+  }
+  .nav-cta:hover{transform:translateY(-1px);box-shadow:0 8px 20px -6px rgba(14,31,27,.45)}
+  @media(max-width:780px){.nav-links{display:none}}
+
+  /* ============ HERO ============ */
+  .hero{padding:148px 0 80px;overflow:hidden}
+  /* 헤더 텍스트는 풀폭, 아래 2열은 폰+카드 */
+  .hero-header{margin-bottom:48px}
+  .hero-grid{display:grid;grid-template-columns:1fr 1.1fr;gap:48px;align-items:start}
+  .hero h1{font-size:clamp(36px,5.5vw,64px);font-weight:900;letter-spacing:-.035em;line-height:1.06;margin:22px 0 20px}
+  .hero h1 .grad{background:linear-gradient(120deg,var(--brand),var(--brand-2) 55%,var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p.lead{font-size:18px;color:var(--ink-soft);max-width:560px;margin-bottom:14px}
+  .hero-disclaimer{
+    font-size:12.5px;color:var(--ink-faint);
+    background:rgba(13,155,130,.07);border:1px solid rgba(13,155,130,.18);
+    border-radius:9px;padding:8px 13px;margin-bottom:24px;max-width:520px;
+    display:flex;align-items:flex-start;gap:8px;
+  }
+  .hero-disclaimer .ico{flex:0 0 auto;color:var(--brand);font-size:14px}
+  .hero-cta{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:34px}
+  .btn{
+    display:inline-flex;align-items:center;gap:9px;font-weight:700;font-size:15.5px;
+    padding:14px 26px;border-radius:14px;transition:transform .2s, box-shadow .25s;cursor:pointer;border:none;
+  }
+  .btn-primary{background:linear-gradient(120deg,var(--brand),var(--brand-2));color:#fff;box-shadow:0 14px 34px -12px rgba(13,155,130,.65)}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 20px 44px -12px rgba(13,155,130,.8)}
+  .btn-ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:var(--shadow)}
+  .btn-ghost:hover{transform:translateY(-2px)}
+  .hero-badges{display:flex;flex-wrap:wrap;gap:10px}
+  .chip{
+    font-size:12.5px;font-weight:700;color:var(--ink-soft);
+    background:var(--surface);border:1px solid var(--line);
+    padding:7px 13px;border-radius:999px;display:inline-flex;gap:7px;align-items:center;
+  }
+  .chip .dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  .stage-badge{
+    font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+    background:rgba(255,122,89,.12);color:#c95333;border:1px solid rgba(255,122,89,.3);
+    padding:5px 11px;border-radius:999px;display:inline-flex;align-items:center;gap:6px;
+  }
+  .stage-badge .dot2{width:6px;height:6px;border-radius:50%;background:#ff7a59}
+
+  @media(max-width:880px){.hero-grid{grid-template-columns:1fr;gap:40px}.hero{padding:120px 0 56px}.hero-header{margin-bottom:36px}}
+
+  /* ============ PHONE MOCKUP — 의료 UI ============ */
+  .phone-stage{display:flex;justify-content:center;perspective:1400px}
+  .phone{
+    width:300px;height:614px;border-radius:46px;
+    background:linear-gradient(160deg,#0b1f1a,#061410);
+    padding:13px;position:relative;
+    box-shadow:var(--shadow-lg), 0 0 0 2px rgba(255,255,255,.5) inset;
+    transform:rotateY(-13deg) rotateX(4deg) rotateZ(1deg);
+    transition:transform .6s cubic-bezier(.2,.7,.2,1);
+  }
+  .phone:hover{transform:rotateY(-4deg) rotateX(2deg)}
+  .phone .notch{position:absolute;top:13px;left:50%;transform:translateX(-50%);width:120px;height:26px;background:#061410;border-radius:0 0 16px 16px;z-index:5}
+  .screen{
+    width:100%;height:100%;border-radius:34px;overflow:hidden;position:relative;
+    background:radial-gradient(120% 90% at 20% 0%,#0d2f28 0%,transparent 55%),
+      radial-gradient(120% 90% at 90% 100%,#092820 0%,transparent 50%),#071a16;
+    display:flex;flex-direction:column;
+  }
+  .screen-top{padding:42px 18px 10px;display:flex;align-items:center;justify-content:space-between}
+  .screen-brand{display:flex;align-items:center;gap:7px;color:#fff;font-weight:800;font-size:14px;letter-spacing:-.01em}
+  .slogo{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,var(--brand),var(--brand-2));display:grid;place-items:center;font-size:13px}
+  .safe-pill{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:#fff;background:rgba(38,196,133,.18);border:1px solid rgba(38,196,133,.4);padding:4px 9px;border-radius:999px}
+  .safe-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.8s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(38,196,133,.7)}70%{box-shadow:0 0 0 8px rgba(38,196,133,0)}100%{box-shadow:0 0 0 0 rgba(38,196,133,0)}}
+
+  /* Streamlit 4단계 플로우 */
+  .step-flow{flex:1;padding:8px 14px 10px;display:flex;flex-direction:column;gap:8px;overflow:hidden;justify-content:flex-end}
+  .step-row{display:flex;gap:7px;align-items:flex-start;animation:steprise .5s both}
+  @keyframes steprise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .step-num{flex:0 0 20px;width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:800;display:grid;place-items:center;background:rgba(13,155,130,.25);color:var(--accent);border:1px solid rgba(38,196,133,.35)}
+  .step-content{flex:1}
+  .step-label{font-size:10px;font-weight:800;color:#9dd4c8;letter-spacing:.04em;margin-bottom:3px}
+  .step-msg{font-size:11.5px;color:#d4ede9;line-height:1.4}
+  .step-msg.accent{color:var(--accent);font-weight:600}
+  .step-msg.warn{background:rgba(255,122,89,.14);border:1px solid rgba(255,122,89,.3);border-radius:8px;padding:5px 8px;color:#ffa98a;font-size:10.5px}
+  .step-msg.report{background:rgba(13,155,130,.12);border:1px solid rgba(13,155,130,.28);border-radius:8px;padding:5px 8px;color:#7de3cc;font-size:10.5px}
+  /* 기능 뱃지 */
+  .step-badge{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.05em;padding:1px 6px;border-radius:20px;margin-right:5px;vertical-align:middle}
+  .step-badge.b-multi{background:rgba(100,149,237,.22);color:#a8c4ff;border:1px solid rgba(100,149,237,.4)}
+  .step-badge.b-qn{background:rgba(255,200,80,.18);color:#ffe080;border:1px solid rgba(255,200,80,.38)}
+  .step-badge.b-rag{background:rgba(124,195,255,.18);color:#a8d8ff;border:1px solid rgba(124,195,255,.38)}
+  .step-badge.b-rf{background:rgba(255,80,80,.22);color:#ffaaaa;border:1px solid rgba(255,80,80,.45)}
+  .step-badge.b-rp{background:rgba(13,155,130,.22);color:#7de3cc;border:1px solid rgba(13,155,130,.42)}
+  /* RedFlag 긴급 스타일 */
+  .step-row.redflag .step-msg{background:rgba(220,38,38,.18);border:1px solid rgba(220,38,38,.5);border-radius:8px;padding:5px 8px;color:#ffb3b3;font-size:10.5px;font-weight:700}
+  .step-row.redflag .step-num{background:rgba(220,38,38,.3);color:#ff8080;border-color:rgba(220,38,38,.6)}
+  /* RAG 출처 칩 */
+  .rag-chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
+  .rag-chip{display:flex;align-items:center;gap:4px;font-size:9.5px;background:rgba(124,195,255,.12);border:1px solid rgba(124,195,255,.3);border-radius:10px;padding:2px 7px;color:#a8d8ff}
+  .rag-bar-wrap{width:28px;height:4px;background:rgba(124,195,255,.18);border-radius:4px;overflow:hidden;display:inline-block;vertical-align:middle}
+  .rag-bar{height:100%;background:#6ec6ff;border-radius:4px}
+  /* QueryNormalizer 변환 표시 */
+  .qn-arrow{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:10px}
+  .qn-before{color:#bbb;text-decoration:line-through}
+  .qn-after{color:#ffe080;font-weight:700}
+  .qn-sym{color:#888;font-size:12px}
+
+  .screen-bottom-info{padding:10px 14px 22px;text-align:center}
+  .screen-bottom-info .hint{font-size:10px;color:#5a8a80;line-height:1.4}
+
+  /* 사이드 태그 */
+  .ear-tag{display:none}
+  .lat-tag{display:none}
+  @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+  @media(max-width:520px){.phone{transform:none}}
+
+  /* ===== 히어로 특징 카드 스택 ===== */
+  .hero-feat-stack{display:flex;flex-direction:column;gap:12px;align-self:center}
+  .hf-card{
+    display:flex;align-items:flex-start;gap:14px;
+    background:var(--surface);border:1px solid var(--line);border-radius:16px;
+    padding:16px 18px;box-shadow:var(--shadow);
+    transition:transform .25s,box-shadow .25s;
+  }
+  .hf-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+  .hf-ic{
+    flex:0 0 38px;width:38px;height:38px;border-radius:11px;
+    display:grid;place-items:center;font-size:20px;
+    background:linear-gradient(135deg,rgba(13,155,130,.12),rgba(10,125,107,.10));
+    border:1px solid rgba(13,155,130,.2);
+  }
+  .hf-body{flex:1;min-width:0}
+  .hf-title{font-size:14px;font-weight:800;letter-spacing:-.01em;color:var(--ink);margin-bottom:4px}
+  .hf-desc{font-size:12.5px;color:var(--ink-soft);line-height:1.5;word-break:keep-all;overflow-wrap:anywhere}
+  @media(max-width:880px){
+    .hero-feat-stack{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  }
+  @media(max-width:560px){
+    .hero-feat-stack{grid-template-columns:1fr}
+  }
+
+  /* ============ STATS STRIP ============ */
+  .stats{padding:46px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--bg-soft),var(--bg))}
+  .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+  .stat{text-align:center}
+  .stat .num{font-size:clamp(28px,4vw,44px);font-weight:900;letter-spacing:-.02em;background:linear-gradient(120deg,var(--brand),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .stat .lbl{font-size:14px;color:var(--ink-soft);font-weight:600;margin-top:4px}
+  .stat .src{font-size:11px;color:var(--ink-faint);font-weight:600;margin-top:3px}
+  .stat .draft-cap{
+    display:inline-block;margin-top:5px;font-size:11px;font-weight:700;
+    color:#0d9b82;background:rgba(13,155,130,.09);border:1px solid rgba(13,155,130,.22);
+    padding:3px 10px;border-radius:7px;
+  }
+  @media(max-width:680px){.stats-grid{grid-template-columns:1fr;gap:26px}}
+
+  /* draft 결과 박스 */
+  .draft-notice{
+    margin-top:24px;background:rgba(13,155,130,.07);border:1px solid rgba(13,155,130,.22);
+    border-radius:14px;padding:16px 20px;font-size:13.5px;color:var(--ink-soft);
+    display:flex;align-items:flex-start;gap:10px;
+  }
+  .draft-notice .ico{font-size:18px;flex:0 0 auto}
+
+  /* generic section padding */
+  .pad{padding:96px 0}
+  .center{text-align:center;display:flex;flex-direction:column;align-items:center}
+
+  /* ============ FEATURES ============ */
+  .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:50px}
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:28px 26px;box-shadow:var(--shadow);transition:transform .3s, box-shadow .3s;
+  }
+  .card:hover{transform:translateY(-6px);box-shadow:var(--shadow-lg)}
+  .card .ic{width:50px;height:50px;border-radius:14px;display:grid;place-items:center;font-size:24px;margin-bottom:16px;background:linear-gradient(135deg,rgba(13,155,130,.12),rgba(10,125,107,.10));border:1px solid rgba(13,155,130,.2)}
+  .card h3{font-size:19px;font-weight:800;margin-bottom:8px;letter-spacing:-.01em}
+  .card p{font-size:14.5px;color:var(--ink-soft)}
+  @media(max-width:860px){.feat-grid{grid-template-columns:1fr}}
+
+  /* ============ BAND (문제 + 프로젝트 메타) ============ */
+  .band{background:var(--surface);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .band-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:46px;align-items:center;padding:64px 0}
+  .band .lead-q{font-size:clamp(20px,2.4vw,27px);font-weight:800;letter-spacing:-.02em;line-height:1.4;margin-bottom:16px}
+  .band .lead-q .mk{background:linear-gradient(120deg,var(--brand),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .band p.body{font-size:15.5px;color:var(--ink-soft);max-width:600px}
+  .meta-card{background:linear-gradient(180deg,var(--bg-soft),var(--surface));border:1px solid var(--line);border-radius:var(--radius);padding:26px 28px;box-shadow:var(--shadow)}
+  .meta-row{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px dashed var(--line);font-size:14px}
+  .meta-row:last-child{border-bottom:none}
+  .meta-row .k{color:var(--ink-faint);font-weight:700}
+  .meta-row .v{color:var(--ink);font-weight:700;text-align:right}
+  .meta-row .v small{display:block;font-size:11.5px;color:var(--ink-faint);font-weight:600}
+  @media(max-width:820px){.band-grid{grid-template-columns:1fr;gap:30px;padding:50px 0}}
+
+  /* 외부인용 태그 */
+  .ext-tag{font-size:10.5px;font-weight:700;color:#7a9b94;background:rgba(122,155,148,.12);border:1px solid rgba(122,155,148,.25);padding:2px 7px;border-radius:5px;font-family:'JetBrains Mono',monospace;vertical-align:middle;margin-left:4px}
+
+  /* ============ CHALLENGES ============ */
+  .ch-list{display:flex;flex-direction:column;gap:22px;margin-top:50px}
+  .ch{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);overflow:hidden;display:grid;grid-template-columns:64px 1fr;
+  }
+  .ch-no{background:linear-gradient(160deg,var(--brand),var(--brand-2));color:#fff;font-weight:900;font-size:24px;display:grid;place-items:center;font-family:'JetBrains Mono',monospace}
+  .ch-body{padding:26px 28px}
+  .ch-body h3{font-size:20px;font-weight:800;letter-spacing:-.01em;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .ch-body h3 .tag{font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--brand);background:rgba(13,155,130,.10);border:1px solid rgba(13,155,130,.22);padding:3px 9px;border-radius:7px}
+  .pp{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .pp .col{padding:16px 18px;border-radius:14px}
+  .pp .prob{background:rgba(255,122,89,.07);border:1px solid rgba(255,122,89,.22)}
+  .pp .sol{background:rgba(13,155,130,.07);border:1px solid rgba(13,155,130,.22)}
+  .pp .col .h{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:7px}
+  .pp .prob .h{color:#c95333}
+  .pp .sol .h{color:#0d9b82}
+  .pp .col p{font-size:14px;color:var(--ink-soft)}
+  .pp code{font-family:'JetBrains Mono',monospace;font-size:12.5px;background:var(--bg-soft);padding:1px 6px;border-radius:5px;color:var(--ink);border:1px solid var(--line)}
+  @media(max-width:760px){.ch{grid-template-columns:1fr}.ch-no{padding:14px;font-size:20px}.pp{grid-template-columns:1fr}}
+
+  /* ============ ARCHITECTURE ============ */
+  .arch{background:linear-gradient(180deg,var(--bg-soft),var(--bg));border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .pipe-wrap{margin-top:46px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:30px 24px;overflow-x:auto}
+  .pipe-wrap svg{display:block;margin:0 auto;min-width:720px}
+  .flow{display:flex;flex-direction:column;align-items:center;gap:0;margin-top:50px}
+  .node{
+    width:100%;max-width:720px;background:var(--surface);border:1px solid var(--line);border-radius:18px;
+    padding:22px 26px;box-shadow:var(--shadow);position:relative;
+  }
+  .node .tier{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--brand)}
+  .node h4{font-size:18px;font-weight:800;margin:4px 0 6px;letter-spacing:-.01em}
+  .node p{font-size:14px;color:var(--ink-soft)}
+  .node .tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .node .tags span{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;color:var(--ink-soft);background:var(--bg-soft);border:1px solid var(--line);padding:4px 9px;border-radius:7px}
+  .arrow{height:46px;width:2px;background:linear-gradient(180deg,var(--brand),var(--accent));position:relative;margin:6px 0}
+  .arrow::after{content:'';position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid var(--accent)}
+  .arrow .lbl{position:absolute;left:14px;top:50%;transform:translateY(-50%);white-space:nowrap;font-size:11.5px;font-weight:700;color:var(--ink-faint);font-family:'JetBrains Mono',monospace}
+
+  /* 결과 테이블 */
+  .result-table{width:100%;border-collapse:collapse;margin-top:36px;font-size:14px}
+  .result-table th{text-align:left;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);padding:10px 14px;border-bottom:2px solid var(--line)}
+  .result-table td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+  .result-table tr:last-child td{border-bottom:none}
+  .result-table .best{font-weight:800;color:var(--brand)}
+  .result-table .low-note{font-size:11.5px;color:var(--ink-faint);font-style:italic}
+  .mode-badge{display:inline-flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;background:var(--bg-soft);border:1px solid var(--line);padding:3px 9px;border-radius:7px}
+  .mode-badge.best-mode{background:rgba(13,155,130,.10);border-color:rgba(13,155,130,.28);color:var(--brand)}
+  .label-tag{font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:700;padding:2px 6px;border-radius:5px;vertical-align:middle;margin-left:4px}
+  .label-real{background:rgba(13,155,130,.1);color:#0a7d6b;border:1px solid rgba(13,155,130,.25)}
+  .label-design{background:rgba(59,111,255,.08);color:#2e5abf;border:1px solid rgba(59,111,255,.2)}
+  .label-ext{background:rgba(122,155,148,.12);color:#3b5a54;border:1px solid rgba(122,155,148,.3)}
+
+  /* ============ TIMELINE ============ */
+  .tl{margin-top:50px;position:relative;padding-left:30px}
+  .tl::before{content:'';position:absolute;left:7px;top:8px;bottom:8px;width:2px;background:linear-gradient(180deg,var(--brand),var(--accent))}
+  .tl-item{position:relative;padding:0 0 30px 26px}
+  .tl-item::before{content:'';position:absolute;left:-30px;top:5px;width:16px;height:16px;border-radius:50%;background:var(--surface);border:3px solid var(--brand);box-shadow:0 0 0 4px var(--bg)}
+  .tl-item h4{font-size:17px;font-weight:800;letter-spacing:-.01em;margin-bottom:6px}
+  .tl-item p{font-size:14.5px;color:var(--ink-soft)}
+  .tl-item .res{display:inline-block;margin-top:8px;font-size:13px;font-weight:700;color:#0d9b82;background:rgba(13,155,130,.08);border:1px solid rgba(13,155,130,.22);padding:5px 12px;border-radius:9px}
+
+  /* 다음 단계 박스 */
+  .next-step-box{
+    background:rgba(13,155,130,.06);border:1px solid rgba(13,155,130,.22);border-radius:14px;
+    padding:20px 24px;margin-top:12px;
+  }
+  .next-step-box .next-label{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--brand);margin-bottom:8px}
+  .next-step-box p{font-size:13.5px;color:var(--ink-soft)}
+  .next-step-box .cite{font-size:11.5px;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;margin-top:6px;display:block}
+  .next-step-box .why-line{font-size:12.5px;color:var(--ink-soft);margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+  .next-step-box .why-line b{color:var(--ink)}
+
+  /* ============ STACK ============ */
+  .stack-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:46px}
+  .scol h4{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:14px}
+  .scol ul{list-style:none;display:flex;flex-direction:column;gap:9px}
+  .scol li{font-size:14px;font-weight:600;color:var(--ink);background:var(--surface);border:1px solid var(--line);padding:11px 15px;border-radius:12px;box-shadow:var(--shadow);display:flex;align-items:center;gap:9px}
+  .scol li .b{width:8px;height:8px;border-radius:50%;flex:0 0 8px}
+  @media(max-width:860px){.stack-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:480px){.stack-grid{grid-template-columns:1fr}}
+
+  /* ============ MULTIHOP 섹션 ============ */
+  .multihop-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:46px;align-items:start}
+  .mh-chart{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:28px;box-shadow:var(--shadow)}
+  .mh-chart h4{font-size:17px;font-weight:800;margin-bottom:20px}
+  .mh-bar-row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .mh-bar-row .hop{font-size:13px;font-weight:700;width:40px;color:var(--ink-soft);flex:0 0 40px}
+  .mh-bar-wrap{flex:1;background:var(--bg-soft);border-radius:6px;height:20px;overflow:hidden}
+  .mh-bar{height:100%;border-radius:6px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:11px;font-weight:800;color:#fff;transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
+  .mh-val{font-size:13px;font-weight:800;width:38px;text-align:right;color:var(--ink-faint)}
+  .mh-cards{display:flex;flex-direction:column;gap:16px}
+  .mh-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;box-shadow:var(--shadow)}
+  .mh-card .label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--brand);margin-bottom:8px}
+  .mh-card p{font-size:14px;color:var(--ink-soft)}
+  @media(max-width:820px){.multihop-grid{grid-template-columns:1fr}}
+
+  /* ============ CTA / FOOTER ============ */
+  .final{padding:90px 0;text-align:center}
+  .final-card{
+    background:linear-gradient(135deg,#071d18,#0c2820);border-radius:30px;padding:64px 40px;color:#fff;
+    box-shadow:var(--shadow-lg);position:relative;overflow:hidden;
+  }
+  .final-card::before{content:'';position:absolute;inset:0;background:radial-gradient(80% 120% at 80% 0%,rgba(38,196,133,.22),transparent 50%),radial-gradient(70% 120% at 10% 100%,rgba(13,155,130,.30),transparent 50%)}
+  .final-card>*{position:relative}
+  .final-card h2{font-size:clamp(26px,4vw,40px);font-weight:900;letter-spacing:-.02em;margin-bottom:14px}
+  .final-card p{font-size:17px;color:#b0d4cc;max-width:520px;margin:0 auto 30px}
+  .final-card .hero-cta{justify-content:center}
+  .btn-light{background:#fff;color:var(--ink)}
+  .btn-line{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3)}
+
+  .footer-disclaimer{
+    background:rgba(13,155,130,.06);border:1px solid rgba(13,155,130,.15);
+    border-radius:10px;padding:12px 18px;font-size:12.5px;color:var(--ink-faint);
+    max-width:680px;margin:0 auto 18px;text-align:center;
+  }
+
+  footer{padding:40px 0;border-top:1px solid var(--line);text-align:center;color:var(--ink-faint);font-size:13.5px}
+  footer .brand{justify-content:center;color:var(--ink-soft);margin-bottom:10px}
+  footer .contact{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin:12px 0 4px;font-size:13.5px}
+  footer .contact a{color:var(--ink-soft);font-weight:600}
+  footer .contact a:hover{color:var(--brand)}
+
+  /* author */
+  .author{display:inline-flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 8px 6px 6px;box-shadow:var(--shadow);margin-bottom:18px}
+  .author .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand-2));display:grid;place-items:center;color:#fff;font-weight:800;font-size:14px;letter-spacing:-.02em}
+  .author .who{display:flex;flex-direction:column;line-height:1.25;padding-right:8px}
+  .author .who b{font-size:14px;font-weight:800;letter-spacing:-.01em}
+  .author .who span{font-size:11.5px;color:var(--ink-faint);font-weight:600}
+
+  /* ============ DEMO GALLERY ============ */
+  .demo-gallery{
+    display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:46px;
+  }
+  .demo-item{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    overflow:hidden;box-shadow:var(--shadow);transition:transform .3s,box-shadow .3s;
+  }
+  .demo-item:hover{transform:translateY(-5px);box-shadow:var(--shadow-lg)}
+  .demo-video-wrap{position:relative;aspect-ratio:16/9;background:#071a16}
+  .demo-video-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
+  .demo-caption{padding:18px 20px}
+  .demo-label{
+    display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+    padding:3px 10px;border-radius:7px;margin-bottom:8px;font-family:'JetBrains Mono',monospace;
+  }
+  .demo-label-red{background:rgba(201,83,51,.12);color:#c95333;border:1px solid rgba(201,83,51,.28)}
+  .demo-label-warn{background:rgba(229,130,30,.12);color:#c07020;border:1px solid rgba(229,130,30,.28)}
+  .demo-label-single{background:rgba(13,155,130,.12);color:#0a7d6b;border:1px solid rgba(13,155,130,.28)}
+  .demo-label-multi{background:rgba(59,90,255,.08);color:#2e5abf;border:1px solid rgba(59,90,255,.2)}
+  .demo-scenario{display:block;font-size:16px;font-weight:800;letter-spacing:-.01em;margin-bottom:6px}
+  .demo-desc{font-size:13.5px;color:var(--ink-soft)}
+  @media(max-width:740px){.demo-gallery{grid-template-columns:1fr}}
+
+  /* 실험 프레임 배너 */
+  .eval-frame-banner{
+    background:linear-gradient(90deg,rgba(13,155,130,.08),rgba(38,196,133,.05));
+    border:1px solid rgba(13,155,130,.22);border-radius:14px;
+    padding:16px 20px;margin-top:20px;font-size:14px;color:var(--ink-soft);
+  }
+  .eval-frame-banner b{color:var(--ink)}
+</style>
+</head>
+<body>
+
+<!-- 면책 최상단 배너 -->
+<div class="disclaimer-bar">
+  <b>⚠ 의료 안전 고지</b> — 본 챗봇은 <b>참고용 자문 도구</b>이며 의학적 진단·처방을 대체하지 않습니다. 이상 증상은 반드시 전문 의료기관을 방문하세요.
+</div>
+
+<!-- NAV -->
+<nav id="nav" style="top:36px">
+  <div class="nav-inner">
+    <div class="brand"><span class="logo">🐱</span> 알려줄고양</div>
+    <div class="nav-links">
+      <a href="#features">핵심 기능</a>
+      <a href="#challenges">설계 결정</a>
+      <a href="#architecture">아키텍처</a>
+      <a href="#results">실험 결과</a>
+      <a href="#demo">데모</a>
+      <a href="#multihop">멀티홉 연계</a>
+      <a href="#retrospect">회고</a>
+      <a href="#datasource">데이터 출처</a>
+    </div>
+    <a class="nav-cta" href="https://github.com/ljhljh0703-cmd/Medical-Chatbot" target="_blank" rel="noopener">GitHub ↗</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="wrap">
+    <!-- 헤더: 풀폭 상단 -->
+    <div class="hero-header">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <span class="eyebrow">AI 응용 · RAG</span>
+        <span class="stage-badge"><span class="dot2"></span>데모</span>
+      </div>
+      <h1>알려줄고양<br/><span class="grad">Medical Chatbot</span></h1>
+      <p class="lead">안전을 코드로 설계한 내과 자문 챗봇 — LoRA(가볍게 미세조정하는 기법)+Hybrid RAG(키워드 검색과 의미 검색을 합친 방식) 3원 통제 비교 · eval 설계 역량 실증</p>
+      <div class="hero-disclaimer">
+        <span class="ico">🏥</span>
+        <span>참고용 자문 도구이며 의학적 진단·처방을 대체하지 않습니다. 이상 증상은 전문 의료기관 방문.</span>
+      </div>
+      <div class="author">
+        <span class="av">이주</span>
+        <span class="who"><b>이주형 · Lee Ju Hyeong</b><span>팀장 · PM · 프론트엔드 · UX · AI 파이프라인 기획 (모델 학습·백엔드 = 팀 공동)</span></span>
+      </div>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="#demo">▶ 데모 영상 보기</a>
+        <a class="btn btn-ghost" href="#challenges">설계 결정 보기</a>
+      </div>
+      <div class="hero-badges">
+        <span class="chip"><span class="dot"></span>Qwen2.5-7B-Instruct + LoRA</span>
+        <span class="chip"><span class="dot"></span>Hybrid RAG (ChromaDB + BM25)</span>
+        <span class="chip"><span class="dot"></span>FastAPI · Streamlit</span>
+        <span class="chip"><span class="dot"></span>LLM Guardrails (RedFlag · PostFilter)</span>
+      </div>
+    </div>
+
+    <!-- 2열: 왼쪽=폰 목업, 오른쪽=특징 카드 6개 -->
+    <div class="hero-grid">
+      <!-- PHONE MOCKUP — Streamlit 4단계 플로우 (기존 그대로) -->
+      <div class="phone-stage">
+        <div class="phone">
+          <div class="notch"></div>
+          <div class="screen">
+            <div class="screen-top">
+              <!-- [작가 자산 교체 예정] 알려줄고양 간호사 고양이 이미지 — 현재 이모지로 대체 -->
+              <div class="screen-brand"><span class="slogo">🐱</span> 알려줄고양 <span style="font-size:12px">🩺</span></div>
+              <div class="safe-pill"><span class="safe-dot"></span>안전 필터 ON</div>
+            </div>
+            <div class="step-flow" id="stepFlow">
+              <!-- JS로 단계별 애니메이션 -->
+            </div>
+            <div class="screen-bottom-info">
+              <div class="hint">멋사 AI 엔지니어 NLP 부트캠프 · 팀 프로젝트 2<br/>※ 참고용 자문 — 진단·처방 대체 불가</div>
+            </div>
+          </div>
+          <!-- [작가 자산 교체 예정] 고양이 캐릭터 이미지 → 컨셉 시안(정면·측면·후면) 교체 -->
+        </div>
+      </div>
+
+      <!-- 특징 카드 6개 — 오른쪽 세로 스택 -->
+      <div class="hero-feat-stack">
+        <div class="hf-card">
+          <span class="hf-ic">🚨</span>
+          <div class="hf-body">
+            <div class="hf-title">RedFlag 안전장치</div>
+            <div class="hf-desc">응급 키워드(BYPASS 13 정규식)면 LLM·RAG를 건너뛰고 119 즉시 안내(Emergency Exit). RED_FLAG 37 키워드는 경고 배너. 안내문이 아닌 코드로 설계.</div>
+          </div>
+        </div>
+        <div class="hf-card">
+          <span class="hf-ic">📚</span>
+          <div class="hf-body">
+            <div class="hf-title">RAG 출처 인용</div>
+            <div class="hf-desc">Hybrid Retrieval(Dense+BM25 결합, α=0.5)로 의학 문서 검색 후 참조 청크·유사도까지 제시해 환각 억제.</div>
+          </div>
+        </div>
+        <div class="hf-card">
+          <span class="hf-ic">🔁</span>
+          <div class="hf-body">
+            <div class="hf-title">멀티턴 문진</div>
+            <div class="hf-desc">기간·악화요인·동반증상을 추가 질문으로 수집해 감별진단 정보 확보.</div>
+          </div>
+        </div>
+        <div class="hf-card">
+          <span class="hf-ic">🔤</span>
+          <div class="hf-body">
+            <div class="hf-title">QueryNormalizer</div>
+            <div class="hf-desc">일상어("머리 지끈")를 표준 의학용어("두통")로 변환해 검색 정확도 향상. 논문 근거 설계.</div>
+          </div>
+        </div>
+        <div class="hf-card">
+          <span class="hf-ic">🧬</span>
+          <div class="hf-body">
+            <div class="hf-title">QLoRA 도메인 특화</div>
+            <div class="hf-desc">Qwen2.5-7B-Instruct를 내과 데이터로 LoRA(가볍게 미세조정 · r=16, 전체의 0.084%) + 4-bit 양자화(nf4) 파인튜닝.</div>
+          </div>
+        </div>
+        <div class="hf-card">
+          <span class="hf-ic">📋</span>
+          <div class="hf-body">
+            <div class="hf-title">의사용 문진 요약 리포트</div>
+            <div class="hf-desc">의심질병·참조 문서·인근 병원(카카오맵)을 의사 전달용으로 정리. PostFilter가 면책 조항 자동 삽입.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- STATS — [실측] 수치 + draft 캡션 -->
+<section class="stats">
+  <div class="wrap">
+    <div class="stats-grid">
+      <div class="stat reveal">
+        <div class="num">0.71</div>
+        <div class="lbl">객관식 EM · Mode C (LoRA+RAG)</div>
+        <div class="src">[실측] vs Mode A 0.69 · valid 995문항 · 발표자료</div>
+        <div class="draft-cap">현재 측정값 · draft (리팩토링 시 갱신)</div>
+      </div>
+      <div class="stat reveal">
+        <div class="num">0.73</div>
+        <div class="lbl">서술형 BERT Score · Mode C</div>
+        <div class="src">[실측] vs Mode A 0.70 · valid 105문항 · 발표자료</div>
+        <div class="draft-cap">현재 측정값 · draft (리팩토링 시 갱신)</div>
+      </div>
+      <div class="stat reveal">
+        <div class="num">0.06</div>
+        <div class="lbl">단답형 EM · 전 모드 (한↔영 지표 한계)</div>
+        <div class="src">[실측] Mode A 0.05 / B·C 0.06 — 지표 자체 한계 · 발표자료</div>
+        <div class="draft-cap">현재 측정값 · draft (리팩토링 시 갱신)</div>
+      </div>
+    </div>
+    <div class="draft-notice reveal">
+      <span class="ico">📝</span>
+      <span>위 수치는 발표자료 기준 현재 측정값입니다. Mode C가 전 지표 최고이나 Mode A 대비 <b>+0.02~+0.03 소폭 우위</b>이며 "압도적 향상"이 아님을 정직하게 표기합니다. 단답형 EM(정답과 정확히 일치한 비율)은 0.05~0.06으로 낮습니다. 한↔영 의학용어 표기 차이로 생기는 <b>지표 자체의 한계</b>이며 함께 노출합니다. 서술형 Rouge-L: Mode C 0.14 vs Mode A 0.12 [실측]. <b>리팩토링 시 갱신 예정.</b></span>
+    </div>
+  </div>
+</section>
+
+<!-- BAND: 문제 + 프로젝트 메타 -->
+<section class="band">
+  <div class="wrap band-grid">
+    <div>
+      <span class="eyebrow reveal">Problem Space</span>
+      <p class="lead-q reveal" style="margin-top:16px">"인터넷 건강정보 이용률 84.4%<span class="ext-tag">[외부인용]</span>인 사회에서, 범용 LLM의 <span class="mk">감별진단 실패율은 80%+.</span><span class="ext-tag">[외부인용]</span>"</p>
+      <p class="body reveal">한국보건사회연구원에 따르면 인터넷 건강정보 이용률은 84.4%<span class="ext-tag">[외부인용]</span>이며, 이투데이 2021 기준 디지털 헬스케어 수요는 86.8%<span class="ext-tag">[외부인용]</span> 늘었습니다. 그런데 병원 챗봇은 예약 안내 중심이고, 포털 검색은 사이버콘드리아(단편 검색→극단 진단)를 만들어냅니다. <b>"내과 도메인에서 안전하게 자문하는"</b> 공백을 LoRA 파인튜닝+하이브리드 RAG+Guardrails로 채웠습니다. <br/><br/><i style="font-size:13px;color:var(--ink-faint)">※ [외부인용] 수치는 문제 배경으로 인용한 외부 통계이며 본 프로젝트 성과가 아닙니다.</i></p>
+    </div>
+    <div class="meta-card reveal">
+      <div class="meta-row"><span class="k">팀 구성</span><span class="v">4인 팀 프로젝트<small>멋쟁이사자처럼 AI 엔지니어 NLP 부트캠프</small></span></div>
+      <div class="meta-row"><span class="k">작가 역할</span><span class="v">팀장 · PM · 프론트 · UX<small>AI 파이프라인 기획 · 모델 학습·백엔드 팀 공동</small></span></div>
+      <div class="meta-row"><span class="k">기간</span><span class="v">약 1주일<small>멋쟁이사자처럼 NLP 부트캠프 팀 프로젝트</small></span></div>
+      <div class="meta-row"><span class="k">현재 상태</span><span class="v">데모<small>리팩토링 예정</small></span></div>
+      <div class="meta-row"><span class="k">베이스 모델</span><span class="v">Qwen2.5-7B-Instruct<small>QLoRA · LoRA r=16 · 4-bit nf4 · 0.084% 학습 파라미터</small></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES: 핵심 기능 3가지 -->
+<section class="pad" id="features">
+  <div class="wrap">
+    <div class="center">
+      <span class="eyebrow reveal">Key Features</span>
+      <h2 class="section-title reveal">핵심 기능</h2>
+      <p class="section-sub reveal">UI/UX부터 LLM Guardrails(위험 출력을 막는 안전장치)까지, 의료 도메인 특성을 설계에 녹인 세 가지 기능입니다.</p>
+    </div>
+    <div class="feat-grid">
+      <div class="card reveal">
+        <div class="ic">🔤</div>
+        <h3>QueryNormalizer</h3>
+        <p>일상 언어("머리 지끈지끈")를 표준 의학용어("두통")로 자동 변환합니다. BM25 키워드 검색의 재현율 저하를 막아, 비전문가도 자연어로 정확한 정보에 접근할 수 있습니다. 사용자 질의문 언어 패턴을 분석한 피부질환 의료상담 챗봇 구현 논문을 내과 분야에 응용해, 증상 표현→표준 의학용어 매핑(SYMPTOM_PATTERNS)을 설계했습니다. <span class="label-tag label-real">[실측-발표자료]</span></p>
+      </div>
+      <div class="card reveal">
+        <div class="ic">🚨</div>
+        <h3>RedFlag · Emergency Exit<br/><span style="font-size:13px;font-weight:600;color:var(--ink-faint)">LLM Guardrails</span></h3>
+        <p>BYPASS 13개 정규식(심근경색·뇌졸중 등) 감지 즉시 LLM·RAG를 완전히 건너뛰고 119·응급실 가이드를 반환합니다. RED_FLAG 37개 키워드는 배너 경고를 띄웁니다. PostFilter가 단정형 어미를 권유형으로 바꿉니다. 안내문이 아닌 코드로 구현한 안전장치입니다.</p>
+      </div>
+      <div class="card reveal">
+        <div class="ic">📋</div>
+        <h3>의사용 문진 요약 리포트</h3>
+        <p>채팅 종료 후 의심 질병·참조 데이터·증상 목록·위치 기반 병원 안내(카카오맵)를 의사 전달용 리포트로 만듭니다. PostFilter가 면책 조항을 자동으로 붙입니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CHALLENGES: 3대 설계 결정 -->
+<section class="pad" id="challenges" style="background:linear-gradient(180deg,var(--bg-soft),var(--bg));border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="center">
+      <span class="eyebrow reveal">Engineering Deep-Dive</span>
+      <h2 class="section-title reveal">3대 설계 결정</h2>
+      <p class="section-sub reveal">컴퓨팅 제약·검색 품질·의료 안전, 세 병목을 각각 코드로 해결한 기록입니다.</p>
+    </div>
+    <div class="ch-list">
+
+      <div class="ch reveal">
+        <div class="ch-no">01</div>
+        <div class="ch-body">
+          <h3>QLoRA(r=16) — 컴퓨팅 제약을 설계로 역전 <span class="tag">QLoRA · CoT</span></h3>
+          <div class="pp">
+            <div class="col prob"><div class="h">⚠ 문제</div><p>Qwen2.5-7B-Instruct(76.1억 파라미터)는 당시 컴퓨팅으로 Full Fine-Tuning이 불가능했습니다.</p></div>
+            <div class="col sol"><div class="h">✓ 해결</div><p>QLoRA — LoRA(모델을 가볍게 미세조정하는 기법 · r=16, 642만 파라미터, 전체의 <code>0.084%</code>)에 <b>4-bit 양자화(<code>nf4</code>)</b>를 더해(<code>train_config.yaml</code>) 단일 GPU에서 도메인을 적응시켰습니다. 학습 데이터는 OpenAI API로 CoT(Chain-of-Thought, 단계별 추론 과정을 명시하는 기법) 전처리했습니다. instruction = "주어진 임상 문제 및 환자 상태를 분석하여, 최적의 진단/처치 또는 의학적 근거를 논리적인 추론 과정과 함께 서술하시오." Raw {question, answer} → PreCleaned {instruction, input, output: <code>[상황 및 핵심 파악]→[의학적 추론 및 근거]→[최종 결론]</code>} 3단 구조로 재구성했습니다. 평가: 객관식 EM(정답과 정확히 일치한 비율) 0.71 (Mode C) <span class="label-tag label-real">[실측-발표자료]</span></p></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ch reveal">
+        <div class="ch-no">02</div>
+        <div class="ch-body">
+          <h3>FAISS→ChromaDB + BM25 하이브리드 α=0.5 <span class="tag">RAG · Kiwi</span></h3>
+          <div class="pp">
+            <div class="col prob"><div class="h">⚠ 문제</div><p>초기 FAISS 기반 밀집 검색은 의학 전문용어의 형태 변형에 취약했습니다. 메타데이터 관리와 확장성도 부족했습니다.</p></div>
+            <div class="col sol"><div class="h">✓ 해결</div><p>ChromaDB로 전환 후 <code>BM25Okapi+Kiwi 형태소</code>와 α=0.5 가중치로 Hybrid Retrieval(키워드 검색과 의미 검색을 합친 방식)을 구성했습니다. QueryNormalizer로 일상어→표준 의학용어를 매핑해 27,000 chunk <span class="label-tag label-design">[설계]</span>에서 재현율과 접근성을 함께 확보했습니다.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ch reveal">
+        <div class="ch-no">03</div>
+        <div class="ch-body">
+          <h3>LLM Guardrails — RedFlag 3층 안전필터 코드화 <span class="tag">Safety · PostFilter</span></h3>
+          <div class="pp">
+            <div class="col prob"><div class="h">⚠ 문제</div><p>응급 상황에서 LLM 응답이 그대로 나가거나 단정적 진단 표현이 출력되면 법적·의료적 위험이 생깁니다.</p></div>
+            <div class="col sol"><div class="h">✓ 해결</div><p><b>Guardrails 3층 구조</b>를 코드로 구현했습니다. ① <code>BYPASS</code> 13 정규식 → Emergency Exit(119 안내, LLM 완전 우회) ② <code>RED_FLAG</code> 37 키워드 → 경고 배너 표시 후 정상 처리 ③ <code>PostFilter</code> → 단정형 어미를 권유형으로 변환하고 면책 조항을 자동 삽입. 안내문이 아닌 코드로 구현한 안전장치입니다. <span class="label-tag label-design">[설계]</span></p></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section class="pad arch" id="architecture">
+  <div class="wrap">
+    <div class="center">
+      <span class="eyebrow reveal">System Design</span>
+      <h2 class="section-title reveal">아키텍처 &amp; 데이터 흐름</h2>
+      <p class="section-sub reveal">사용자 쿼리가 Guardrails·검색·생성 파이프라인을 거쳐 검증된 응답으로 나오는 구조입니다.</p>
+    </div>
+
+    <!-- SVG 파이프라인 -->
+    <div class="pipe-wrap reveal">
+      <svg viewBox="0 0 1040 260" width="100%" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="알려줄고양 시스템 아키텍처">
+        <defs>
+          <linearGradient id="g1" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#0d9b82"/><stop offset="1" stop-color="#26c485"/>
+          </linearGradient>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#0d9b82"/>
+          </marker>
+          <marker id="ah2" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#26c485"/>
+          </marker>
+        </defs>
+        <!-- 화살표: 순방향 -->
+        <g stroke="#0d9b82" stroke-width="2.4" marker-end="url(#ah)" fill="none">
+          <line x1="160" y1="80" x2="196" y2="80"/>
+          <line x1="348" y1="80" x2="384" y2="80"/>
+          <line x1="538" y1="80" x2="574" y2="80"/>
+          <line x1="734" y1="80" x2="770" y2="80"/>
+        </g>
+        <!-- 응답 반환 경로 -->
+        <g stroke="#26c485" stroke-width="2.2" fill="none" marker-end="url(#ah2)" stroke-dasharray="6 5">
+          <path d="M880,145 L880,206 L96,206 L96,145"/>
+        </g>
+        <text x="490" y="228" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#0d9b82" font-weight="700">↩ 검증된 응답 (PostFilter → 권유형·면책 삽입) · downlink</text>
+
+        <!-- 노드 -->
+        <g font-family="Noto Sans KR, sans-serif">
+          <!-- 사용자 -->
+          <rect x="10" y="46" width="150" height="90" rx="14" fill="#f5f9f8" stroke="#d8ebe6"/>
+          <text x="85" y="80" text-anchor="middle" font-size="24">🧑‍⚕️</text>
+          <text x="85" y="104" text-anchor="middle" font-size="12" font-weight="800" fill="#0e1f1b">사용자 Query</text>
+          <text x="85" y="122" text-anchor="middle" font-size="11" fill="#7a9b94">자연어 증상 입력</text>
+          <!-- UI -->
+          <rect x="200" y="46" width="148" height="90" rx="14" fill="#fff" stroke="#c0ddd8"/>
+          <text x="274" y="80" text-anchor="middle" font-size="22">🖥</text>
+          <text x="274" y="102" text-anchor="middle" font-size="12" font-weight="800" fill="#0e1f1b">Streamlit :8501</text>
+          <text x="274" y="120" text-anchor="middle" font-size="10" fill="#7a9b94">4단계 플로우 UI</text>
+          <!-- ChatService -->
+          <rect x="388" y="46" width="150" height="90" rx="14" fill="#fff" stroke="#c0ddd8"/>
+          <text x="463" y="80" text-anchor="middle" font-size="22">⚙️</text>
+          <text x="463" y="102" text-anchor="middle" font-size="12" font-weight="800" fill="#0e1f1b">FastAPI :8000</text>
+          <text x="463" y="120" text-anchor="middle" font-size="10" fill="#7a9b94">ChatService 오케스트레이터</text>
+          <!-- Safety -->
+          <rect x="578" y="8" width="156" height="74" rx="14" fill="#fff7f5" stroke="#f5c4b2"/>
+          <text x="656" y="40" text-anchor="middle" font-size="20">🚨</text>
+          <text x="656" y="60" text-anchor="middle" font-size="12" font-weight="800" fill="#0e1f1b">LLM Guardrails</text>
+          <text x="656" y="76" text-anchor="middle" font-size="10" fill="#c95333">RedFlag + PostFilter</text>
+          <!-- RAG -->
+          <rect x="578" y="96" width="156" height="76" rx="14" fill="#f5fdf9" stroke="#b2e0d0"/>
+          <text x="656" y="128" text-anchor="middle" font-size="20">🔍</text>
+          <text x="656" y="148" text-anchor="middle" font-size="12" font-weight="800" fill="#0e1f1b">Retrieval</text>
+          <text x="656" y="164" text-anchor="middle" font-size="10" fill="#0d9b82">Dense + BM25 Hybrid</text>
+          <!-- 분기 화살표 -->
+          <line x1="578" y1="80" x2="538" y2="80" stroke="#c95333" stroke-width="1.8" stroke-dasharray="4 3"/>
+          <line x1="538" y1="80" x2="538" y2="46" stroke="#c95333" stroke-width="1.8"/>
+          <line x1="538" y1="46" x2="578" y2="46" stroke="#c95333" stroke-width="1.8" marker-end="url(#ah)"/>
+          <line x1="538" y1="130" x2="578" y2="130" stroke="#0d9b82" stroke-width="1.8" stroke-dasharray="4 3"/>
+          <!-- Generation -->
+          <rect x="774" y="46" width="160" height="90" rx="14" fill="#fff" stroke="#c0ddd8"/>
+          <text x="854" y="80" text-anchor="middle" font-size="22">🤖</text>
+          <text x="854" y="100" text-anchor="middle" font-size="12" font-weight="800" fill="#0e1f1b">GenerationService</text>
+          <text x="854" y="118" text-anchor="middle" font-size="10" fill="#7a9b94">OpenAI / Qwen+LoRA</text>
+          <!-- ChromaDB box -->
+          <rect x="774" y="146" width="160" height="58" rx="12" fill="#f5f9f8" stroke="#d8ebe6"/>
+          <text x="854" y="175" text-anchor="middle" font-size="20">🗄</text>
+          <text x="854" y="196" text-anchor="middle" font-size="10" fill="#7a9b94">ChromaDB 27,000 chunk</text>
+          <line x1="854" y1="136" x2="854" y2="146" stroke="#d8ebe6" stroke-width="1.8"/>
+          <line x1="734" y1="134" x2="774" y2="134" stroke="#0d9b82" stroke-width="1.8" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+        </g>
+        <text x="160" y="34" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0d9b82" font-weight="700">query uplink →</text>
+      </svg>
+    </div>
+
+    <!-- 3-Stage 학습 커리큘럼 -->
+    <div class="pipe-wrap reveal" style="margin-top:32px">
+      <div style="margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--brand)">3-Stage 학습 커리큘럼</span>
+        <span class="label-tag label-real">[실측-발표자료]</span>
+        <span style="font-size:13px;color:var(--ink-faint)">질문 유형별 점진 학습 — max_len 점증 · lr 점감</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="result-table" style="min-width:580px">
+          <thead>
+            <tr>
+              <th>Stage</th>
+              <th>질문 유형</th>
+              <th>max_len</th>
+              <th>batch</th>
+              <th>learning rate</th>
+              <th>epoch</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="mode-badge">Stage 1</span></td>
+              <td style="font-weight:700">단답형</td>
+              <td>560</td>
+              <td>4</td>
+              <td><code class="pp code">0.002</code></td>
+              <td>2</td>
+            </tr>
+            <tr>
+              <td><span class="mode-badge">Stage 2</span></td>
+              <td style="font-weight:700">서술형</td>
+              <td>730</td>
+              <td>2</td>
+              <td><code class="pp code">0.001</code></td>
+              <td>2</td>
+            </tr>
+            <tr style="background:rgba(13,155,130,.04)">
+              <td><span class="mode-badge best-mode">Stage 3</span></td>
+              <td style="font-weight:700">객관식</td>
+              <td>840</td>
+              <td>2</td>
+              <td><code class="pp code">0.0005</code></td>
+              <td>2</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px;font-size:12.5px;color:var(--ink-faint)">max_len 560 → 730 → 840 점증 · lr 0.002 → 0.001 → 0.0005 점감 커리큘럼 — 짧고 명확한 유형 먼저 학습 후 복잡 유형으로 점진 전환.</div>
+    </div>
+
+    <!-- Flow 노드 상세 -->
+    <div class="flow">
+      <div class="node reveal">
+        <div class="tier">① Streamlit :8501 — 4단계 플로우</div>
+        <h4>Disclaimer → Profile → Chat → Report</h4>
+        <p>면책 동의 없이는 시작할 수 없습니다(Step -1). 연령·성별 버튼 입력(Step 0). 증상 자연어 채팅 + RedFlag 배너(Step 1). 의사용 문진 요약 리포트(Step 2). 알려줄고양 고양이 페르소나가 온보딩 친근 톤("~다냥")↔결과 전문 톤으로 전환합니다.</p>
+        <div class="tags"><span>Streamlit</span><span>4-step Flow</span><span>카카오맵 API</span></div>
+      </div>
+      <div class="arrow"><span class="lbl">HTTP REST ↑</span></div>
+      <div class="node reveal">
+        <div class="tier">② FastAPI :8000 — ChatService 오케스트레이터</div>
+        <h4>LLM Guardrails · RetrievalService · GenerationService</h4>
+        <p>요청이 들어오면 Guardrails(BYPASS→Emergency Exit / RED_FLAG→배너)가 먼저 판단합니다. 통과하면 RetrievalService(Dense+BM25 Hybrid·QueryNormalizer)→GenerationService(OpenAI/Qwen+LoRA) 순으로 처리하고 PostFilter가 어미를 교정합니다.</p>
+        <div class="tags"><span>FastAPI</span><span>RedFlagDetector</span><span>PostFilter</span><span>ko-sroberta-multitask</span></div>
+      </div>
+      <div class="arrow"><span class="lbl">Vector + BM25 Search</span></div>
+      <div class="node reveal">
+        <div class="tier">③ RAG 계층 — ChromaDB + BM25 Hybrid</div>
+        <h4>27,000 chunk · α=0.5 하이브리드 결합</h4>
+        <p>3,447 내과 문서(약 1,229만 자)를 size500/overlap50으로 청킹해 ChromaDB에 저장했습니다. ko-sroberta-multitask(768차원) 밀집 검색 + Kiwi 형태소 BM25 키워드 검색을 α=0.5로 합쳐 의학 전문용어 재현율을 보강합니다.</p>
+        <div class="tags"><span>ChromaDB</span><span>BM25Okapi</span><span>Kiwi</span><span>ko-sroberta-multitask 768d</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RESULTS: 3원 통제 비교 실험 결과 -->
+<section class="pad" id="results" style="background:linear-gradient(180deg,var(--bg-soft),var(--bg));border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="center">
+      <span class="eyebrow reveal">Experiment Results</span>
+      <h2 class="section-title reveal">3원 통제 비교 실험</h2>
+      <p class="section-sub reveal">동일 평가셋(valid 1,248)에서 변수(LoRA·RAG)를 하나씩 추가하며 설계 선택의 독립 기여도를 분리했습니다. 평가셋 설계 → 통제 비교 → 지표 해석 → 한계 인식, 이 네 단계를 의료 도메인에서 직접 돌린 eval(평가 실험) 루프입니다.</p>
+    </div>
+
+    <!-- eval 프레임 배너 -->
+    <div class="eval-frame-banner reveal">
+      <b>통제 실험 설계:</b> <b>Mode A</b>(Qwen2.5 단독, LLM only) → <b>Mode B</b>(LLM+RAG · Dense·BM25·Hybrid 비교) → <b>Mode C</b>(LoRA+Hybrid RAG)로 변수를 하나씩 추가해 각 요소의 독립 기여도를 분리했습니다. 평가지표: <b>EM</b>(Exact Match, 정답 정확 일치율, 객관식·단답형) · <b>Rouge-L</b>(서술형 문장 재현율) · <b>BERT Score</b>(서술형 의미 유사도). 단순 점수 비교가 아니라 <b>평가셋 설계 → 통제 비교 → 지표 해석 → 한계 인식</b>의 eval 루프를 의료 도메인에서 직접 운영한 케이스입니다.
+    </div>
+
+    <!-- 결과 테이블 -->
+    <div style="overflow-x:auto;margin-top:28px">
+      <table class="result-table reveal">
+        <thead>
+          <tr>
+            <th>Mode</th>
+            <th>구성</th>
+            <th>객관식 EM<br/><span style="font-weight:600;color:var(--ink-faint)">valid 995</span></th>
+            <th>서술형 BERT<br/><span style="font-weight:600;color:var(--ink-faint)">valid 105</span></th>
+            <th>서술형 Rouge-L<br/><span style="font-weight:600;color:var(--ink-faint)">valid 105</span></th>
+            <th>단답형 EM<br/><span style="font-weight:600;color:var(--ink-faint)">전 모드</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="mode-badge">Mode A</span></td>
+            <td style="color:var(--ink-soft);font-size:13.5px">LLM 단독</td>
+            <td>0.69</td>
+            <td>0.70</td>
+            <td>0.12</td>
+            <td><span class="low-note">0.05 — 지표 한계</span></td>
+          </tr>
+          <tr>
+            <td><span class="mode-badge">Mode B</span></td>
+            <td style="color:var(--ink-soft);font-size:13.5px">LLM + RAG</td>
+            <td>0.70</td>
+            <td>0.71</td>
+            <td>0.13</td>
+            <td><span class="low-note">0.06 — 지표 한계</span></td>
+          </tr>
+          <tr style="background:rgba(13,155,130,.04)">
+            <td><span class="mode-badge best-mode">Mode C ★</span></td>
+            <td style="color:var(--ink-soft);font-size:13.5px">LoRA + RAG</td>
+            <td class="best">0.71 <span style="font-size:11px;color:var(--ink-faint)">(+0.02)</span></td>
+            <td class="best">0.73 <span style="font-size:11px;color:var(--ink-faint)">(+0.03)</span></td>
+            <td class="best">0.14 <span style="font-size:11px;color:var(--ink-faint)">(+0.02)</span></td>
+            <td><span class="low-note">0.06 — 지표 한계</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="draft-notice reveal" style="margin-top:20px">
+      <span class="ico">📋</span>
+      <div>
+        <b>draft — 리팩토링 시 갱신</b><br/>
+        <span style="font-size:13px">위 수치는 발표자료 기준 측정값입니다. <span class="label-tag label-real">[실측-발표자료]</span> 출처: 발표자료 Generation 2/2 슬라이드. 단답형 EM(0.05~0.06)이 낮은 이유는 <b>한↔영 의학용어 표기 차이</b>에 있습니다. "두통" vs "headache" 등 동일 개념의 한영 혼재로 엄격 EM이 과소평가되는 구조이며, 이를 보완하기 위해 채점용 한영 사전(Dictionary)을 생성해 분석했습니다. 과대포장 없이 그대로 노출합니다. Mode C의 정성적 성과는 "일상어→의학용어 자동 번역(QueryNormalizer)", "응급 Emergency Exit", "의사용 문진 요약 리포트" UX에서 의료 도메인 특성을 설계에 녹였다는 점입니다. <b>단답형 EM의 한계를 인식하는 것 자체가 eval 설계자 역량의 일부입니다.</b></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DEMO — 시나리오 갤러리 4종 -->
+<section class="pad" id="demo" style="border-top:1px solid var(--line)">
+  <div class="wrap">
+    <div class="center">
+      <span class="eyebrow reveal">Demo</span>
+      <h2 class="section-title reveal">데모 영상 — 시나리오 4종</h2>
+      <p class="section-sub reveal">RedFlag 2단 안전장치(긴급/경고)와 싱글·멀티턴을 실제 시연한 4개 시나리오.</p>
+    </div>
+    <div class="demo-gallery reveal">
+      <div class="demo-item">
+        <div class="demo-video-wrap">
+          <iframe src="https://www.youtube.com/embed/TfC9v9idPLc" title="S1 · Red Flag — 체온 40도" frameborder="0" loading="lazy" allowfullscreen></iframe>
+        </div>
+        <div class="demo-caption">
+          <span class="demo-label demo-label-red">S1 · Red Flag</span>
+          <span class="demo-scenario">체온 40도</span>
+          <p class="demo-desc">BYPASS 정규식 감지 → LLM·RAG 건너뛰고 119·응급실 즉시 안내(Emergency Exit).</p>
+        </div>
+      </div>
+      <div class="demo-item">
+        <div class="demo-video-wrap">
+          <iframe src="https://www.youtube.com/embed/x3v56hw8stk" title="S2 · Semi Red Flag — 전신 두드러기" frameborder="0" loading="lazy" allowfullscreen></iframe>
+        </div>
+        <div class="demo-caption">
+          <span class="demo-label demo-label-warn">S2 · Semi Red Flag</span>
+          <span class="demo-scenario">전신 두드러기</span>
+          <p class="demo-desc">RED_FLAG 키워드 → 경고 배너 표시 후 정상 자문 진행.</p>
+        </div>
+      </div>
+      <div class="demo-item">
+        <div class="demo-video-wrap">
+          <iframe src="https://www.youtube.com/embed/neYV6TMC-XA" title="S3 · 싱글턴 — 감기" frameborder="0" loading="lazy" allowfullscreen></iframe>
+        </div>
+        <div class="demo-caption">
+          <span class="demo-label demo-label-single">S3 · 싱글턴</span>
+          <span class="demo-scenario">감기</span>
+          <p class="demo-desc">단일 질의 자문 — Hybrid RAG 검색 + 권유형 어미.</p>
+        </div>
+      </div>
+      <div class="demo-item">
+        <div class="demo-video-wrap">
+          <iframe src="https://www.youtube.com/embed/_FehgjfhF9g" title="S4 · 멀티턴 — 복통" frameborder="0" loading="lazy" allowfullscreen></iframe>
+        </div>
+        <div class="demo-caption">
+          <span class="demo-label demo-label-multi">S4 · 멀티턴</span>
+          <span class="demo-scenario">복통</span>
+          <p class="demo-desc">다중턴 문진 → 의사용 문진 요약 리포트.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MULTIHOP 연계 섹션 -->
+<section class="pad" id="multihop" style="background:linear-gradient(180deg,var(--bg-soft),var(--bg));border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="center">
+      <span class="eyebrow reveal">RAG · 검증 연계</span>
+      <h2 class="section-title reveal">멀티홉 팩트체킹 — 같은 설계 사고</h2>
+      <p class="section-sub reveal">부트캠프 팀 프로젝트 1(멀티홉)에서 같은 하이브리드 검색 설계 사고를 다른 도메인에 구현했습니다. ChromaDB 밀집 검색 단독으로는 홉 깊이가 깊어질수록 의미론적 오류가 급증합니다. 이를 데이터로 확인하고 BM25+ProgramFC 하이브리드로 전환한 근거를 만들었습니다.</p>
+    </div>
+    <div class="multihop-grid">
+      <div class="mh-chart reveal">
+        <h4>ChromaDB 단독 · 홉별 의미론적 오류율 <span class="label-tag label-real">[실측-자체분석]</span></h4>
+        <div style="margin-top:4px;margin-bottom:20px;font-size:13px;color:var(--ink-faint)">홉 깊이가 깊을수록 오류 급증 → BM25 하이브리드 전환 근거</div>
+        <div class="mh-bar-row">
+          <span class="hop">2홉</span>
+          <div class="mh-bar-wrap"><div class="mh-bar" style="width:29%;background:linear-gradient(90deg,#0d9b82,#26c485)">29%</div></div>
+          <span class="mh-val">29%</span>
+        </div>
+        <div class="mh-bar-row">
+          <span class="hop">3홉</span>
+          <div class="mh-bar-wrap"><div class="mh-bar" style="width:38%;background:linear-gradient(90deg,#e07a3b,#f59c2a)">38%</div></div>
+          <span class="mh-val">38%</span>
+        </div>
+        <div class="mh-bar-row">
+          <span class="hop">4홉</span>
+          <div class="mh-bar-wrap"><div class="mh-bar" style="width:77%;background:linear-gradient(90deg,#c95333,#e06b4a)">77%</div></div>
+          <span class="mh-val">77%</span>
+        </div>
+        <div style="margin-top:14px;font-size:12px;color:var(--ink-faint)">출처: 멀티홉 구현 Read.me 자체 오류 분석 · <span class="label-tag label-real">[실측-프로젝트자체분석]</span></div>
+        <div style="margin-top:8px;font-size:12px;color:var(--ink-faint)">최종 성능치(Recall@10·Macro-F1): <b>[측정전]</b> — 구현 Read.me "미정" 명시</div>
+      </div>
+      <div class="mh-cards">
+        <div class="mh-card reveal">
+          <div class="label">공통 설계 사고</div>
+          <p>두 프로젝트 모두 <b>"하이브리드 검색으로 검색 품질을 보강하고, 단계별 Guardrails(RedFlag / Unknown Guard)로 오류 전파를 차단한다"</b>는 같은 검증 설계 사고를 공유합니다.</p>
+        </div>
+        <div class="mh-card reveal">
+          <div class="label">작가 기여 (멀티홉)</div>
+          <p>팀장 · 검색 모듈(BM25+하이브리드 리트리버) 담당.</p>
+        </div>
+        <div class="mh-card reveal">
+          <div class="label">적용 근거 (의료챗봇)</div>
+          <p>멀티홉에서 확인한 벡터 검색 단독의 한계를, 의료챗봇 BM25+ChromaDB 하이브리드 설계에 직접 반영했습니다. 같은 방법론을 다른 도메인에 이식한 사례입니다. <b>RAG(검색해서 그 내용으로 답하는 구조)를 단계별로 분해해 평가하는 관점</b>이 두 프로젝트를 관통합니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RETROSPECT: 회고/한계 + 신기술 다음 단계 -->
+<section class="pad" id="retrospect" style="border-top:1px solid var(--line)">
+  <div class="wrap">
+    <div class="center">
+      <span class="eyebrow reveal">Retrospect</span>
+      <h2 class="section-title reveal">회고 · 현재 한계 · 다음 단계</h2>
+      <p class="section-sub reveal">정직한 한계 인식과 다음 단계의 기록입니다. 미구현 기술은 "다음 단계"로 명시하고, "이미 했다"는 표현은 쓰지 않습니다.</p>
+    </div>
+    <div class="tl">
+
+      <div class="tl-item reveal">
+        <h4>단답형 EM 지표 한계 — 0.05~0.06 <span class="label-tag label-real">[실측-발표자료]</span></h4>
+        <p>한↔영 의학용어 표기 차이(예: "두통" vs "headache")로 EM(정답과 정확히 일치한 비율) 자체가 낮게 측정됩니다. 동일 개념을 한영으로 혼재 표기하면 엄격 일치 채점이 정답을 오답으로 처리합니다. 이를 보완하기 위해 채점용 한영 Dictionary를 생성해 분석했습니다. 발표자료도 과대포장 없이 그대로 노출했습니다.</p>
+        <span class="res">→ 의학용어 사전 확장 + Fuzzy Match(edit distance 기반) 또는 BERT Score(문장 의미 유사도 점수) 대체 평가로 개선할 수 있습니다. 엄격 EM이 과소평가하는 구조를 인지하고 eval 개선 시 반영할 예정입니다.</span>
+      </div>
+
+      <!-- 신기술 #1: Reranker — 미구현, 다음 단계로 정직 표기 -->
+      <div class="tl-item reveal">
+        <h4>현재 한계 — Retrieval 품질: Reranker 미탑재</h4>
+        <p>현재 파이프라인은 하이브리드 검색(BM25+Dense) 결과를 LLM에 바로 넘깁니다. Reranker(검색 결과를 다시 정밀하게 정렬하는 모듈)가 없어 상위 k개 청크 중 노이즈가 섞일 수 있습니다.</p>
+        <div class="next-step-box">
+          <div class="next-label">다음 단계 — 미구현</div>
+          <p><b>Reranker(cross-encoder) 삽입</b>: bi-encoder(현재 ko-sroberta)로 빠르게 후보를 압축한 뒤 cross-encoder로 정밀 재정렬하는 2-stage retrieve→rerank 구조입니다. 속도(bi-encoder)와 정확도(cross-encoder)의 트레이드오프를 분리하는 표준 접근입니다.</p>
+          <span class="cite">근거: Nogueira &amp; Cho, "Passage Re-ranking with BERT" (2019) — 2-stage retrieve→rerank 정립. BAAI bge-reranker(FlagEmbedding) = production RAG 표준 도구.</span>
+          <p class="why-line"><b>왜 이 기술인가:</b> 현재 α=0.5 하이브리드 가중치로 검색 품질을 일부 보완했습니다. 의학 전문 쿼리에서 컨텍스트 관련성 순위를 스코어로 재정렬하면 생성 단계 할루시네이션이 줄어들 것으로 봅니다.</p>
+        </div>
+        <span class="res">→ 다음 파이프라인 개선 시 cross-encoder Reranker 삽입 예정. 현재 단계에선 미구현.</span>
+      </div>
+
+      <!-- 신기술 #2: RAGAS — 미구현, 다음 단계로 정직 표기 -->
+      <div class="tl-item reveal">
+        <h4>현재 한계 — Retrieval 품질 지표: RAGAS 미측정</h4>
+        <p>현재 eval은 EM·BERT Score(문장 의미 유사도 점수)·Rouge-L로 <b>생성 품질</b>만 측정했습니다. "검색된 컨텍스트가 생성에 얼마나 충실히 반영됐는가(faithfulness, 생성된 답이 근거 문서에 충실한 정도)"와 "관련 컨텍스트를 얼마나 찾았는가(context recall)"는 측정하지 못했습니다.</p>
+        <div class="next-step-box">
+          <div class="next-label">다음 단계 — 미구현</div>
+          <p><b>RAGAS(RAG 품질을 자동 평가하는 프레임워크) 기반 Retrieval 품질 평가</b>: faithfulness·context recall·answer relevancy를 정답 레이블 없이 자동으로 측정합니다. 현재 EM/BERT만으로는 검색 단계의 품질을 진단하기 어렵습니다.</p>
+          <span class="cite">근거: Es et al., "RAGAS: Automated Evaluation of Retrieval Augmented Generation" (arXiv:2309.15217, 2023) — faithfulness·context recall·answer relevancy 자동 평가 체계.</span>
+          <p class="why-line"><b>왜 이 기술인가:</b> "생성이 좋다"와 "검색이 좋다"는 별개입니다. RAGAS faithfulness·context recall을 적용하면 할루시네이션이 어느 단계(검색 vs 생성)에서 나오는지 분리해 진단할 수 있습니다. RAG를 단계별로 분해 평가하는 관점의 직접 도구입니다.</p>
+        </div>
+        <span class="res">→ 향후 파이프라인 개선 시 RAGAS 측정 적용 예정. 이 갭을 인식하는 것 자체가 eval 설계 역량의 일부입니다.</span>
+      </div>
+
+      <div class="tl-item reveal">
+        <h4>내과 한정 — 타과 확장 시 재설계 필요</h4>
+        <p>현재 27,000 chunk 데이터는 내과 Q-A 쌍입니다. 외과·정신과 등 타 진료과로 확장하려면 도메인별 데이터와 Guardrails를 다시 구성해야 합니다.</p>
+        <span class="res">→ 진료과별 데이터 파이프라인 모듈화 방향</span>
+      </div>
+
+      <div class="tl-item reveal">
+        <h4>3-Stage 학습 커리큘럼 확정 <span class="label-tag label-real">[실측-발표자료]</span></h4>
+        <p>발표자료로 질문 유형별 점진 학습 순서를 확정했습니다. Stage 1(단답형 · max_len 560 · lr 0.002) → Stage 2(서술형 · 730 · 0.001) → Stage 3(객관식 · 840 · 0.0005). max_len을 단계마다 늘리고 lr을 줄이는 점진 커리큘럼으로, 짧고 명확한 유형 먼저 학습 후 복잡 유형으로 전환했습니다. 전 단계 QLoRA(LoRA r=16 · 4-bit nf4) 동일 적용.</p>
+        <span class="res">→ 발표자료로 확정. 아키텍처 섹션 커리큘럼 표 참조.</span>
+      </div>
+
+      <div class="tl-item reveal">
+        <h4>리팩토링 예정</h4>
+        <p>현재 성능으로 리팩토링이 가능합니다. 재측정 후 위 수치를 갱신할 예정입니다. STATS·결과 섹션은 "draft — 리팩토링 시 갱신" 캡션으로 명시해 두었습니다.</p>
+        <span class="res">→ 리팩토링 완료 후 수치 일괄 갱신</span>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- STACK -->
+<section class="pad" style="border-top:1px solid var(--line)">
+  <div class="wrap">
+    <div class="center">
+      <span class="eyebrow reveal">Tech Stack</span>
+      <h2 class="section-title reveal">기술 스택</h2>
+    </div>
+    <div class="stack-grid">
+      <div class="scol reveal">
+        <h4>LLM · 학습</h4>
+        <ul>
+          <li><span class="b" style="background:#0d9b82"></span>Qwen2.5-7B-Instruct</li>
+          <li><span class="b" style="background:#0d9b82"></span>QLoRA (LoRA r=16 · 4-bit nf4)</li>
+          <li><span class="b" style="background:#0d9b82"></span>OpenAI API (CoT)</li>
+          <li><span class="b" style="background:#0d9b82"></span>ko-sroberta-multitask</li>
+        </ul>
+      </div>
+      <div class="scol reveal">
+        <h4>RAG · 검색</h4>
+        <ul>
+          <li><span class="b" style="background:#26c485"></span>ChromaDB</li>
+          <li><span class="b" style="background:#26c485"></span>BM25Okapi + Kiwi</li>
+          <li><span class="b" style="background:#26c485"></span>Hybrid α=0.5</li>
+          <li><span class="b" style="background:#26c485"></span>QueryNormalizer</li>
+        </ul>
+      </div>
+      <div class="scol reveal">
+        <h4>LLM Guardrails · 백엔드</h4>
+        <ul>
+          <li><span class="b" style="background:#0a7d6b"></span>FastAPI :8000</li>
+          <li><span class="b" style="background:#0a7d6b"></span>RedFlagDetector</li>
+          <li><span class="b" style="background:#0a7d6b"></span>PostFilter</li>
+          <li><span class="b" style="background:#0a7d6b"></span>카카오맵 API</li>
+        </ul>
+      </div>
+      <div class="scol reveal">
+        <h4>프론트 · 데이터</h4>
+        <ul>
+          <li><span class="b" style="background:#7a9b94"></span>Streamlit :8501</li>
+          <li><span class="b" style="background:#7a9b94"></span>train 10,299 QA</li>
+          <li><span class="b" style="background:#7a9b94"></span>valid 1,248</li>
+          <li><span class="b" style="background:#7a9b94"></span>27,000 chunk</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DATA SOURCE: 데이터 출처 — 학습·RAG -->
+<section class="pad" id="datasource" style="background:linear-gradient(180deg,var(--bg-soft),var(--bg));border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="center">
+      <span class="eyebrow reveal">Data Provenance</span>
+      <h2 class="section-title reveal">데이터 출처 — 학습·RAG</h2>
+      <p class="section-sub reveal">무엇을 학습시키고 검색시켰는지 정직하게 인용합니다. <span class="label-tag label-real">[실측-AI-Hub]</span> 원본 데이터를 재배포하지 않으며, 본 포트폴리오는 <b>설계·방법·결과</b>만 공개합니다(clean-room).</p>
+    </div>
+
+    <!-- 데이터셋 2종 카드 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:46px">
+
+      <div class="card reveal">
+        <div class="ic">🏥</div>
+        <h3 style="font-size:17px">필수의료 의학지식 데이터</h3>
+        <p style="margin-bottom:12px">AI-Hub 데이터셋 번호 <code class="pp code">71875</code></p>
+        <p>과학기술정보통신부·<b>한국지능정보사회진흥원(NIA)</b> 구축, <b>가톨릭대학교 산학협력단</b> 주관. 서울성모·삼성서울·서울대·세브란스·보라매병원 참여. 내과 도메인 질의응답 쌍 수록.</p>
+        <div style="margin-top:16px">
+          <a href="https://www.aihub.or.kr/aihubdata/data/view.do?dataSetSn=71875" target="_blank" rel="noopener"
+            style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:var(--brand);background:rgba(13,155,130,.08);border:1px solid rgba(13,155,130,.22);padding:7px 14px;border-radius:9px;text-decoration:none;transition:background .2s"
+            onmouseover="this.style.background='rgba(13,155,130,.15)'" onmouseout="this.style.background='rgba(13,155,130,.08)'">
+            출처 보기 ↗
+          </a>
+        </div>
+      </div>
+
+      <div class="card reveal">
+        <div class="ic">📖</div>
+        <h3 style="font-size:17px">전문 의학지식 데이터</h3>
+        <p style="margin-bottom:12px">AI-Hub 데이터셋 번호 <code class="pp code">71874</code></p>
+        <p>동일 구축 주관(과학기술정보통신부·NIA·가톨릭대학교 산학협력단). 의학 교과서·학회 가이드라인·온라인 의료 정보를 원천으로 하는 의학 말뭉치 수록. RAG 청킹 원천.</p>
+        <div style="margin-top:16px">
+          <a href="https://www.aihub.or.kr/aihubdata/data/view.do?dataSetSn=71874" target="_blank" rel="noopener"
+            style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:var(--brand);background:rgba(13,155,130,.08);border:1px solid rgba(13,155,130,.22);padding:7px 14px;border-radius:9px;text-decoration:none;transition:background .2s"
+            onmouseover="this.style.background='rgba(13,155,130,.15)'" onmouseout="this.style.background='rgba(13,155,130,.08)'">
+            출처 보기 ↗
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 사용 범위 + 라이선스 상세 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:22px">
+
+      <div class="mh-card reveal">
+        <div class="label">본 프로젝트 사용 범위 <span class="label-tag label-real">[실측-AI-Hub]</span></div>
+        <p style="font-size:14px;margin-top:8px">
+          내과 도메인 질의응답 <b>12,781쌍</b>을 train / valid(<b>10,299 / 1,248</b>)로 분할·CoT(Chain-of-Thought, 단계별 추론 과정을 명시하는 기법) 전처리 후 <b>LoRA(가볍게 미세조정하는 기법) 학습</b>에 사용했습니다.<br/><br/>
+          원천 의학 말뭉치(의학 교과서·학회 가이드라인·온라인 의료 정보)를 청킹 → <b>RAG(검색해서 그 내용으로 답하는 구조) 약 27,000 chunk</b> 구성. <span style="font-size:13px;color:var(--ink-faint)">학술 논문·기타(동의서 등)는 미사용.</span>
+        </p>
+      </div>
+
+      <div class="mh-card reveal">
+        <div class="label">이용·라이선스 (정직)</div>
+        <p style="font-size:14px;margin-top:8px">
+          AI-Hub 보건의료 데이터로 <b>안심존(보안구역) 개방</b> 방식으로 제공됩니다(연구·개발 목적, IRB·내국인 신청 기반).<br/><br/>
+          <b>원본 데이터는 재배포하지 않습니다.</b> 본 포트폴리오는 해당 데이터를 활용한 <b>설계·방법·결과</b>만을 공개하며, 공개 데이터 활용 프로젝트임을 정직하게 표기합니다.
+        </p>
+      </div>
+
+    </div>
+
+    <!-- 구축 기관 요약 배너 -->
+    <div class="draft-notice reveal" style="margin-top:22px">
+      <span class="ico">🏛️</span>
+      <div>
+        <b>구축 기관 요약</b><br/>
+        <span style="font-size:13px"><b>주무부처:</b> 과학기술정보통신부 · <b>총괄:</b> 한국지능정보사회진흥원(NIA) · <b>주관:</b> 가톨릭대학교 산학협력단 · <b>참여 병원:</b> 서울성모·삼성서울·서울대·세브란스·보라매병원. — AI-Hub 공식 페이지 확인분. 과장·미확인 사항 없음.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final">
+  <div class="wrap">
+    <div class="final-card reveal">
+      <h2>안전을 코드로 설계한 내과 자문 챗봇</h2>
+      <p>LoRA·하이브리드 RAG·Guardrails를 결합해 "안전하게 자문하는" 공백을 채웠습니다. 3원 통제 실험으로 설계 선택의 정량적 우위를 직접 검증했습니다.</p>
+      <div class="hero-cta">
+        <a class="btn btn-light" href="https://github.com/ljhljh0703-cmd/Medical-Chatbot" target="_blank" rel="noopener">GitHub 저장소</a>
+        <a class="btn btn-line" href="#demo">▶ 데모 영상 보기</a>
+        <a class="btn btn-line" href="https://drive.google.com/file/d/1Tu9P8ALFhJbKnqfvpBHS3H_C5oGtQfgj/view" target="_blank" rel="noopener">📄 발표자료(PDF)</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-disclaimer">
+      ⚠ 본 챗봇은 <b>참고용 자문 도구</b>이며 의학적 진단·처방을 대체하지 않습니다. 이상 증상은 반드시 전문 의료기관을 방문하세요.
+    </div>
+    <div class="brand"><span class="logo">🐱</span> 알려줄고양 — Medical Chatbot</div>
+    <div>내과 의료자문 챗봇 · LoRA + Hybrid RAG + LLM Guardrails</div>
+    <div class="contact">
+      <span>이주형 · Lee Ju Hyeong</span>
+      <a href="mailto:ljhljh0703@gmail.com">ljhljh0703@gmail.com</a>
+      <a href="https://github.com/ljhljh0703-cmd/Medical-Chatbot" target="_blank" rel="noopener">github.com/ljhljh0703-cmd/Medical-Chatbot</a>
+    </div>
+    <div style="margin-top:8px;font-size:12px">© 2026 이주형 · 멋쟁이사자처럼 AI 엔지니어 NLP 부트캠프 팀 프로젝트 2 · Draft (리팩토링 시 수치 갱신 예정)</div>
+  </div>
+</footer>
+
+<script>
+  /* ===== Nav scroll shadow ===== */
+  const nav = document.getElementById('nav');
+  addEventListener('scroll', () => nav.classList.toggle('scrolled', scrollY > 12));
+
+  /* ===== Reveal on scroll ===== */
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.10, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  /* Stagger */
+  document.querySelectorAll('.feat-grid, .stats-grid, .ch-list, .stack-grid, .tl, .mh-cards, .multihop-grid').forEach(group => {
+    [...group.children].forEach((child, i) => { child.style.transitionDelay = (i * 70) + 'ms'; });
+  });
+
+  /* ===== 기능 시연 사이클 애니메이션 ===== */
+  /* 사이클 A: 멀티턴 문진 → QueryNormalizer → RAG 출처 인용 → 의사용 리포트 */
+  /* 사이클 B: RedFlag 안전장치 (LLM/RAG 스킵 → Emergency Exit) */
+  const CYCLES = [
+    /* ── 사이클 A ── */
+    {
+      num:'1', badge:'멀티턴', badgeCls:'b-multi',
+      label:'Step 1 · 멀티턴 문진(Multi-turn) — 사용자 입력',
+      msg:'머리가 지끈지끈하고 눈이 빠질 것 같아요', type:'normal'
+    },
+    {
+      num:'1', badge:'멀티턴', badgeCls:'b-multi',
+      label:'Step 1 · 알려줄고양 추가 질문 (친근 톤 · 핵심 증상 유도)',
+      msg:'알겠다냥! 언제부터 그랬고, 다른 증상은 없냥?', type:'accent'
+    },
+    {
+      num:'1', badge:'멀티턴', badgeCls:'b-multi',
+      label:'Step 1 · 사용자 답변 — 문진 완성',
+      msg:'3일 됐고 빛 볼 때 더 아파요', type:'normal'
+    },
+    {
+      num:'1', badge:'QueryNormalizer', badgeCls:'b-qn',
+      label:'Step 1 · QueryNormalizer — 일상어 → 표준 의학용어 변환',
+      msg:'__QN__',   /* 특수 렌더 — 아래 renderQN() 처리 */
+      type:'normal'
+    },
+    {
+      num:'1', badge:'RAG', badgeCls:'b-rag',
+      label:'Step 1 · RAG 출처 인용 — 하이브리드 검색 결과',
+      msg:'두통과 광선 과민 증상을 고려할 때 긴장성 두통 또는 편두통 가능성이 있습니다. 증상이 지속되면 신경과 전문의 방문을 권장합니다.',
+      type:'accent',
+      rag: [
+        { label:'내과 증상 가이드', sim: 0.53, bar: 88 },
+        { label:'두통 감별진단',    sim: 0.52, bar: 84 },
+        { label:'광선 과민 두통',   sim: 0.51, bar: 80 },
+      ]
+    },
+    {
+      num:'2', badge:'리포트', badgeCls:'b-rp',
+      label:'Step 2 · 의사용 문진 요약 리포트',
+      msg:'[의심질병: 긴장성 두통]  [참조 문서 3건]  [인근 병원: 카카오맵]', type:'report'
+    },
+    /* ── 사이클 B: RedFlag · Emergency Exit ── */
+    {
+      num:'−1', badge:null, badgeCls:null,
+      label:'Step -1 · Disclaimer',
+      msg:'본 서비스는 참고용 자문 도구입니다. 의학적 진단·처방을 대체하지 않음에 동의하시겠습니까?', type:'warn'
+    },
+    {
+      num:'0', badge:null, badgeCls:null,
+      label:'Step 0 · 인적사항',
+      msg:'성별: 남성  연령대: 30대', type:'normal'
+    },
+    {
+      num:'1', badge:'RedFlag', badgeCls:'b-rf',
+      label:'Step 1 · 사용자 입력',
+      msg:'피를 토하고 있어요', type:'normal', rowCls:'redflag'
+    },
+    {
+      num:'1', badge:'RedFlag 🚨', badgeCls:'b-rf',
+      label:'Step 1 · RedFlag(BYPASS) 감지 → Emergency Exit (LLM·RAG 스킵)',
+      msg:'🚨 긴급 상황입니다. 즉시 119에 신고하거나 가까운 응급실로 가세요다냥!',
+      type:'normal', rowCls:'redflag'
+    },
+  ];
+
+  const flowEl = document.getElementById('stepFlow');
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  function renderQN() {
+    return `<div class="qn-arrow">
+      <span class="qn-before">머리 지끈</span>
+      <span class="qn-sym">→</span>
+      <span class="qn-after">두통 (Headache)</span>
+    </div>
+    <div style="font-size:9.5px;color:#888;margin-top:3px">일상어를 표준 의학용어로 정규화 — 검색 정확도 향상</div>`;
+  }
+
+  function renderRAGChips(ragArr) {
+    return `<div class="rag-chips">📚 참조 ${ragArr.length}건 ·
+      ${ragArr.map(r =>
+        `<span class="rag-chip">
+          ${r.label}
+          <span class="rag-bar-wrap"><span class="rag-bar" style="width:${r.bar}%"></span></span>
+          ${r.sim}
+        </span>`
+      ).join('')}
+    </div>`;
+  }
+
+  async function runSteps() {
+    while (flowEl) {
+      for (let i = 0; i < CYCLES.length; i++) {
+        const s = CYCLES[i];
+        const row = document.createElement('div');
+        row.className = 'step-row' + (s.rowCls ? ' ' + s.rowCls : '');
+        row.style.animationDelay = '0ms';
+
+        const badgeHTML = s.badge
+          ? `<span class="step-badge ${s.badgeCls}">${s.badge}</span>`
+          : '';
+
+        let msgHTML;
+        if (s.msg === '__QN__') {
+          msgHTML = renderQN();
+        } else if (s.type === 'normal') {
+          msgHTML = `<div class="step-msg">${s.msg}</div>`;
+        } else {
+          msgHTML = `<div class="step-msg ${s.type}">${s.msg}</div>`;
+        }
+
+        const ragHTML = s.rag ? renderRAGChips(s.rag) : '';
+
+        row.innerHTML = `<div class="step-num">${s.num}</div>
+          <div class="step-content">
+            <div class="step-label">${badgeHTML}${s.label}</div>
+            ${msgHTML}
+            ${ragHTML}
+          </div>`;
+        flowEl.appendChild(row);
+
+        if (flowEl.children.length > 3) {
+          const old = flowEl.firstElementChild;
+          old.style.opacity = '0';
+          old.style.transform = 'translateY(-8px)';
+          old.style.transition = 'opacity .35s,transform .35s';
+          setTimeout(() => old.remove(), 360);
+        }
+        const isLast = (i === CYCLES.length - 1);
+        await sleep(isLast ? 3200 : 1700);
+      }
+      await sleep(800);
+    }
+  }
+  runSteps();
+
+  /* ===== 멀티홉 바 애니메이션 ===== */
+  const barObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.querySelectorAll('.mh-bar').forEach(b => {
+          const w = b.style.width;
+          b.style.width = '0';
+          requestAnimationFrame(() => { b.style.width = w; });
+        });
+        barObserver.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.3 });
+  document.querySelectorAll('.mh-chart').forEach(el => barObserver.observe(el));
+</script>
+</body>
+</html>
